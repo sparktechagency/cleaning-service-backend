@@ -44,6 +44,8 @@ export interface IUser extends Document {
   resetPasswordOtp?: string;
   resetPasswordOtpExpiry?: Date;
   isEmailVerified?: boolean;
+  isOnline?: boolean;
+  lastSeen?: Date;
   isDeleted?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -147,6 +149,13 @@ const UserSchema = new Schema<IUser>(
     isEmailVerified: {
       type: Boolean,
       default: false,
+    },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastSeen: {
+      type: Date,
     },
     isDeleted: {
       type: Boolean,

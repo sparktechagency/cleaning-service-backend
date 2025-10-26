@@ -34,6 +34,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.97",
     "@types/qrcode": "^1.5.5",
+    "@types/socket.io": "^3.0.1",
     "aws": "^0.0.3-2",
     "aws-sdk": "^2.1692.0",
     "bcrypt": "^5.1.1",
@@ -53,7 +54,7 @@
     "nodemailer": "^6.9.14",
     "nodemon": "^3.1.4",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.7.5",
+    "socket.io": "^4.8.1",
     "streamifier": "^0.1.1",
     "stripe": "^16.8.0",
     "zod": "^3.23.8"

@@ -195,3 +195,6 @@ export const fileUploader = {
   uploadGeneralFile,
   deleteFromCloudinary,
 };
+
+// Export cloudinary instance for direct use
+export { cloudinary };

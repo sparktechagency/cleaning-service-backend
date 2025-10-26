@@ -1,7 +1,9 @@
 import { Server } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import config from "./config";
 import "./shared/database";
 import app from "./app";
+import { socketHandler } from "./socket/socketHandler";
 
 let server: Server;
 
@@ -9,6 +11,18 @@ async function startServer() {
   server = app.listen(config.port, () => {
     console.log("Server is listening on port ", config.port);
   });
+
+  // Initialize Socket.IO
+  const io = new SocketIOServer(server, {
+    cors: {
+      origin: "*", // Will Configure this based on frontend URL in production
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+  });
+
+  // Initialize socket handler
+  socketHandler(io);
 }
 
 async function main() {
