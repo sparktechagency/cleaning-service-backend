@@ -4,6 +4,7 @@ import httpStatus from "http-status";
 import { Category, ICategory } from "./category.model";
 import { Types } from "mongoose";
 import { fileUploader } from "../../../helpers/fileUploader";
+import { User } from "../../models/User.model";
 
 const createCategory = async (
   categoryData: Partial<ICategory>
@@ -193,10 +194,104 @@ const deleteCategory = async (
   }
 };
 
+const totalCount = async () => {
+  const currentYear = new Date().getFullYear();
+
+  const totalOwners = await User.countDocuments({
+    role: "OWNER",
+    isDeleted: { $ne: true },
+  });
+
+  const totalProviders = await User.countDocuments({
+    role: "PROVIDER",
+    isDeleted: { $ne: true },
+  });
+
+  const ownerMonthlyGrowth = await User.aggregate([
+    {
+      $match: {
+        role: "OWNER",
+        isDeleted: { $ne: true },
+        createdAt: {
+          $gte: new Date(`${currentYear}-01-01`),
+          $lte: new Date(`${currentYear}-12-31T23:59:59`),
+        },
+      },
+    },
+    {
+      $group: {
+        _id: { $month: "$createdAt" },
+        count: { $sum: 1 },
+      },
+    },
+    {
+      $sort: { _id: 1 },
+    },
+  ]);
+
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const formatMonthlyData = (monthlyData: any[]) => {
+    const formattedData = [];
+    let cumulativeCount = 0;
+    let previousMonthTotal = 0;
+
+    for (let i = 1; i <= 12; i++) {
+      const monthData = monthlyData.find((m) => m._id === i);
+      const newUsers = monthData ? monthData.count : 0;
+      cumulativeCount += newUsers;
+
+      let growthPercentage = 0;
+      if (previousMonthTotal > 0) {
+        growthPercentage = (newUsers / previousMonthTotal) * 100;
+      } else if (newUsers > 0) {
+        growthPercentage = 100;
+      }
+
+      formattedData.push({
+        month: monthNames[i - 1],
+        newUsers,
+        growthPercentage: parseFloat(growthPercentage.toFixed(2)),
+      });
+
+      previousMonthTotal = cumulativeCount > 0 ? cumulativeCount : newUsers;
+    }
+
+    return formattedData;
+  };
+
+  const ownerMonthlyData = formatMonthlyData(ownerMonthlyGrowth);
+
+  return {
+    summary: {
+      totalOwners,
+      totalProviders,
+    },
+    ownerOverview: {
+      year: currentYear,
+      monthlyOverview: ownerMonthlyData,
+    },
+  };
+};
+
 export const adminService = {
   createCategory,
   getCategories,
   getCategoryById,
+  totalCount,
   updateCategory,
   deleteCategory,
 };

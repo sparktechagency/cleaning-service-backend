@@ -99,10 +99,22 @@ const deleteCategory = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getTotalCount = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.totalCount();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "User statistics retrieved successfully",
+    data: result,
+  });
+});
+
 export const adminController = {
   createCategory,
   getCategories,
   getCategoryById,
   updateCategory,
   deleteCategory,
+  getTotalCount,
 };

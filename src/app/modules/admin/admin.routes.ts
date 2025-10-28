@@ -17,6 +17,9 @@ const categoryFileUpload = categoryUpload.fields([
 
 const router = express.Router();
 
+// Statistics route
+router.get("/statistics", auth(UserRole.ADMIN), adminController.getTotalCount);
+
 // Category management routes
 router.post(
   "/categories",
