@@ -170,6 +170,19 @@ const searchUsers = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getBookingRequestOverview = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await adminService.bookingRequestOverview();
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Booking requests retrieved successfully",
+      data: result,
+    });
+  }
+);
+
 export const adminController = {
   createCategory,
   getCategories,
@@ -182,4 +195,5 @@ export const adminController = {
   getAllOwners,
   getAllProviders,
   searchUsers,
+  getBookingRequestOverview,
 };

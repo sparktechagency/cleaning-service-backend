@@ -37,6 +37,12 @@ router.get(
   adminController.searchUsers
 );
 
+router.get(
+  "/bookings",
+  auth(UserRole.ADMIN),
+  adminController.getBookingRequestOverview
+);
+
 // Category management routes
 router.post(
   "/categories",

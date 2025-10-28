@@ -5,6 +5,7 @@ import { Category, ICategory } from "./category.model";
 import { Types } from "mongoose";
 import { fileUploader } from "../../../helpers/fileUploader";
 import { User } from "../../models/User.model";
+import { Booking } from "../booking/booking.model";
 
 const createCategory = async (
   categoryData: Partial<ICategory>
@@ -432,6 +433,40 @@ const searchUsers = async (searchTerm: string) => {
   return sortedUsers;
 };
 
+const bookingRequestOverview = async () => {
+  const bookings = await Booking.find()
+    .populate({
+      path: "customerId",
+      select: "userName",
+    })
+    .populate({
+      path: "providerId",
+      select: "userName",
+    })
+    .populate({
+      path: "serviceId",
+      select: "categoryId",
+      populate: {
+        path: "categoryId",
+        select: "name",
+      },
+    })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  const formattedBookings = bookings.map((booking: any) => ({
+    ownerName: booking.customerId?.userName,
+    providerName: booking.providerId?.userName,
+    bookingDate: booking.scheduledAt,
+    category: booking.serviceId?.categoryId?.name,
+    amount: booking.totalAmount,
+    serviceDuration: booking.serviceDuration,
+    status: booking.status,
+  }));
+
+  return formattedBookings;
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -444,4 +479,5 @@ export const adminService = {
   getAllOwners,
   getAllProviders,
   searchUsers,
+  bookingRequestOverview,
 };
