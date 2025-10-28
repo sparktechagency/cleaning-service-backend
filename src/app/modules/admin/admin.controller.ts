@@ -121,14 +121,38 @@ const getRecentUsers = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const getIndividualUserDetails = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const result = await adminService.getIndividualUserDetails(id);
+const getIndividualUserDetails = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await adminService.getIndividualUserDetails(id);
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "User retrieved successfully",
+      data: result,
+    });
+  }
+);
+
+const getAllOwners = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.getAllOwners();
 
   sendResponse(res, {
     statusCode: 200,
     success: true,
-    message: "User retrieved successfully",
+    message: "Owners retrieved successfully",
+    data: result,
+  });
+});
+
+const getAllProviders = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.getAllProviders();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Providers retrieved successfully",
     data: result,
   });
 });
@@ -142,4 +166,6 @@ export const adminController = {
   getTotalCount,
   getRecentUsers,
   getIndividualUserDetails,
+  getAllOwners,
+  getAllProviders,
 };

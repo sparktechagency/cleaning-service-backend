@@ -20,7 +20,15 @@ const router = express.Router();
 // Statistics route
 router.get("/statistics", auth(UserRole.ADMIN), adminController.getTotalCount);
 
-router.get("/recent-users", auth(UserRole.ADMIN), adminController.getRecentUsers);
+router.get(
+  "/recent-users",
+  auth(UserRole.ADMIN),
+  adminController.getRecentUsers
+);
+
+router.get("/owners", auth(UserRole.ADMIN), adminController.getAllOwners);
+
+router.get("/providers", auth(UserRole.ADMIN), adminController.getAllProviders);
 
 // Category management routes
 router.post(

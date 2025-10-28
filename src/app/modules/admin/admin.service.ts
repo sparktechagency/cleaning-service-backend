@@ -339,6 +339,29 @@ const getIndividualUserDetails = async (userId: string) => {
   }
 };
 
+const getAllOwners = async () => {
+  const owners = await User.find({ role: "OWNER", isDeleted: { $ne: true } })
+    .select(
+      "_id profilePicture userName role createdAt phoneNumber email address"
+    )
+    .sort({ createdAt: -1 });
+
+  return owners;
+};
+
+const getAllProviders = async () => {
+  const providers = await User.find({
+    role: "PROVIDER",
+    isDeleted: { $ne: true },
+  })
+    .select(
+      "_id profilePicture userName role createdAt phoneNumber email address"
+    )
+    .sort({ createdAt: -1 });
+
+  return providers;
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -348,4 +371,6 @@ export const adminService = {
   recentJoinedUsers,
   updateCategory,
   deleteCategory,
+  getAllOwners,
+  getAllProviders,
 };
