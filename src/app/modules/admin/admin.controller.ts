@@ -110,6 +110,17 @@ const getTotalCount = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getRecentUsers = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.recentJoinedUsers();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Recent users retrieved successfully",
+    data: result,
+  });
+});
+
 export const adminController = {
   createCategory,
   getCategories,
@@ -117,4 +128,5 @@ export const adminController = {
   updateCategory,
   deleteCategory,
   getTotalCount,
+  getRecentUsers,
 };

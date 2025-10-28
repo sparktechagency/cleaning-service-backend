@@ -287,11 +287,23 @@ const totalCount = async () => {
   };
 };
 
+const recentJoinedUsers = async (limit: number = 6) => {
+  const users = await User.find({ isDeleted: { $ne: true } })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .select(
+      "_id profilePicture userName role createdAt phoneNumber email address "
+    );
+
+  return users;
+};
+
 export const adminService = {
   createCategory,
   getCategories,
   getCategoryById,
   totalCount,
+  recentJoinedUsers,
   updateCategory,
   deleteCategory,
 };
