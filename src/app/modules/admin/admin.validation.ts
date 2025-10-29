@@ -79,6 +79,17 @@ const searchUsersSchema = z.object({
   }),
 });
 
+const changeUserStatusSchema = z.object({
+  params: z.object({
+    id: z
+      .string({ required_error: "User ID is required" })
+      .regex(/^[0-9a-fA-F]{24}$/, "Invalid user ID format"),
+  }),
+  body: z.object({
+    isActive: z.boolean({ required_error: "isActive field is required" }),
+  }),
+});
+
 export const adminValidation = {
   createCategorySchema,
   updateCategorySchema,
@@ -87,4 +98,5 @@ export const adminValidation = {
   getCategoriesQuerySchema,
   getUserSchema,
   searchUsersSchema,
+  changeUserStatusSchema,
 };

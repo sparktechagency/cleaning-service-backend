@@ -8,7 +8,7 @@ export enum UserRole {
 
 export enum UserStatus {
   ACTIVE = "ACTIVE",
-  INACTIVE = "INACTIVE",
+  INACTIVE = "EXPIRED",
   BLOCKED = "BLOCKED",
 }
 
@@ -137,7 +137,7 @@ const UserSchema = new Schema<IUser>(
     status: {
       type: String,
       enum: Object.values(UserStatus),
-      default: UserStatus.INACTIVE,
+      default: UserStatus.ACTIVE,
     },
     // Authentication related fields
     emailVerificationOtp: {

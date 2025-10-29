@@ -467,6 +467,28 @@ const bookingRequestOverview = async () => {
   return formattedBookings;
 };
 
+const changeUserStatus = async (userId: string, isActive: boolean) => {
+  if (!Types.ObjectId.isValid(userId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid user ID");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { status: isActive ? "ACTIVE" : "BLOCKED" },
+    { new: true }
+  );
+
+  if (!user) {
+    throw new ApiError(httpStatus.NOT_FOUND, "User not found");
+  }
+
+  return {
+    message: `User has been ${
+      isActive ? "activated" : "deactivated"
+    } successfully`,
+  };
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -480,4 +502,5 @@ export const adminService = {
   getAllProviders,
   searchUsers,
   bookingRequestOverview,
+  changeUserStatus,
 };

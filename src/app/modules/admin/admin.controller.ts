@@ -183,6 +183,20 @@ const getBookingRequestOverview = catchAsync(
   }
 );
 
+const changeUserStatus = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { isActive } = req.body;
+
+  const result = await adminService.changeUserStatus(id, isActive);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: result.message,
+    data: result,
+  });
+});
+
 export const adminController = {
   createCategory,
   getCategories,
@@ -196,4 +210,5 @@ export const adminController = {
   getAllProviders,
   searchUsers,
   getBookingRequestOverview,
+  changeUserStatus,
 };

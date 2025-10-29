@@ -88,4 +88,11 @@ router.get(
   adminController.getIndividualUserDetails
 );
 
+router.patch(
+  "/users/status/:id",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.changeUserStatusSchema),
+  adminController.changeUserStatus
+);
+
 export const adminRoutes = router;
