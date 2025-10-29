@@ -489,6 +489,135 @@ const changeUserStatus = async (userId: string, isActive: boolean) => {
   };
 };
 
+const bookingUserOverview = async (bookingId: string) => {
+  if (!Types.ObjectId.isValid(bookingId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
+  }
+
+  const booking = await Booking.findById(bookingId)
+    .populate({
+      path: "customerId",
+      select: "userName role createdAt phoneNumber email address referredBy",
+    })
+    .populate({
+      path: "providerId",
+      select:
+        "userName role createdAt phoneNumber email address experience referredBy",
+    })
+    .lean();
+
+  if (!booking) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
+  }
+
+  const owner: any = booking.customerId;
+  const provider: any = booking.providerId;
+
+  if (!owner || !provider) {
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Owner or Provider information not found"
+    );
+  }
+
+  const ownerTotalOrders = await Booking.countDocuments({
+    customerId: owner._id,
+  });
+
+  const ownerCompletedOrders = await Booking.countDocuments({
+    customerId: owner._id,
+    status: "COMPLETED",
+  });
+
+  const ownerCancelledOrders = await Booking.countDocuments({
+    customerId: owner._id,
+    status: "CANCELLED",
+  });
+
+  const providerTotalOrders = await Booking.countDocuments({
+    providerId: provider._id,
+  });
+
+  const providerCompletedOrders = await Booking.countDocuments({
+    providerId: provider._id,
+    status: "COMPLETED",
+  });
+
+  const providerCancelledOrders = await Booking.countDocuments({
+    providerId: provider._id,
+    status: "CANCELLED",
+  });
+
+  const providerServiceCategories = await Booking.aggregate([
+    {
+      $match: {
+        providerId: new mongoose.Types.ObjectId(provider._id),
+      },
+    },
+    {
+      $lookup: {
+        from: "services",
+        localField: "serviceId",
+        foreignField: "_id",
+        as: "serviceInfo",
+      },
+    },
+    {
+      $unwind: "$serviceInfo",
+    },
+    {
+      $lookup: {
+        from: "categories",
+        localField: "serviceInfo.categoryId",
+        foreignField: "_id",
+        as: "categoryInfo",
+      },
+    },
+    {
+      $unwind: "$categoryInfo",
+    },
+    {
+      $group: {
+        _id: "$categoryInfo._id",
+        categoryName: { $first: "$categoryInfo.name" },
+      },
+    },
+  ]);
+
+  const categoryNames = providerServiceCategories.map(
+    (cat) => cat.categoryName
+  );
+
+  return {
+    ownerInformation: {
+      userName: owner.userName,
+      role: owner.role,
+      accountCreationDate: owner.createdAt,
+      phoneNumber: owner.phoneNumber,
+      email: owner.email,
+      address: owner.address,
+      referredBy: owner.referredBy || null,
+      totalOrders: ownerTotalOrders,
+      totalCompletedOrders: ownerCompletedOrders,
+      totalCancelledOrders: ownerCancelledOrders,
+    },
+    providerInformation: {
+      userName: provider.userName,
+      serviceCategories: categoryNames,
+      role: provider.role,
+      accountCreationDate: provider.createdAt,
+      phoneNumber: provider.phoneNumber,
+      email: provider.email,
+      address: provider.address,
+      experience: provider.experience,
+      referredBy: provider.referredBy || null,
+      totalOrders: providerTotalOrders,
+      totalCompletedOrders: providerCompletedOrders,
+      totalCancelledOrders: providerCancelledOrders,
+    },
+  };
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -503,4 +632,5 @@ export const adminService = {
   searchUsers,
   bookingRequestOverview,
   changeUserStatus,
+  bookingUserOverview,
 };

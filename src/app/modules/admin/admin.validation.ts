@@ -90,6 +90,14 @@ const changeUserStatusSchema = z.object({
   }),
 });
 
+const getBookingUserOverviewSchema = z.object({
+  params: z.object({
+    bookingId: z
+      .string({ required_error: "Booking ID is required" })
+      .regex(/^[0-9a-fA-F]{24}$/, "Invalid booking ID format"),
+  }),
+});
+
 export const adminValidation = {
   createCategorySchema,
   updateCategorySchema,
@@ -99,4 +107,5 @@ export const adminValidation = {
   getUserSchema,
   searchUsersSchema,
   changeUserStatusSchema,
+  getBookingUserOverviewSchema,
 };

@@ -43,6 +43,13 @@ router.get(
   adminController.getBookingRequestOverview
 );
 
+router.get(
+  "/bookings/:bookingId",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.getBookingUserOverviewSchema),
+  adminController.getBookingUserOverview
+);
+
 // Category management routes
 router.post(
   "/categories",
