@@ -150,6 +150,19 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const checkTokenValidity = catchAsync(async (req: Request, res: Response) => {
+  const { token } = req.body;
+
+  const result = await authService.checkTokenValidity(token);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Token validity checked successfully",
+    data: result,
+  });
+});
+
 export const AuthController = {
   register,
   verifyOtp,
@@ -162,4 +175,5 @@ export const AuthController = {
   resetPassword,
   resendOtp,
   verifyForgotPasswordOtp,
+  checkTokenValidity,
 };

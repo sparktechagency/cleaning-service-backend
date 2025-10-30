@@ -1280,6 +1280,42 @@ const deleteKnowledgeHubArticle = async (articleId: string) => {
   }
 };
 
+const adminEditProfile = async (
+  adminId: string,
+  updateData: Partial<{
+    userName: string;
+  }>
+) => {
+  if (!Types.ObjectId.isValid(adminId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid admin ID");
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    const result = await session.withTransaction(async () => {
+      const updateAdmin = await User.findByIdAndUpdate(
+        adminId,
+        { userName: updateData.userName },
+        { new: true, session, runValidators: true }
+      ).select("_id userName email role profilePicture");
+
+      if (!updateAdmin) {
+        throw new ApiError(
+          httpStatus.INTERNAL_SERVER_ERROR,
+          "Failed to update admin profile"
+        );
+      }
+
+      return updateAdmin;
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -1306,4 +1342,5 @@ export const adminService = {
   deleteKnowledgeHubArticle,
   getKnowledgeHubArticles,
   getKnowledgeHubArticleById,
+  adminEditProfile,
 };

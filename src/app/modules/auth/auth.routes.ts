@@ -68,4 +68,6 @@ router.post(
   AuthController.resetPassword
 );
 
+router.get("/check-token-validity", AuthController.checkTokenValidity);
+
 export const authRoutes = router;

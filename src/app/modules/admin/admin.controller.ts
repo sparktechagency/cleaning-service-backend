@@ -371,6 +371,18 @@ const getKnowledgeHubArticleById = catchAsync(
   }
 );
 
+const adminEditProfile = catchAsync(async (req: Request, res: Response) => {
+  const { id } = req.user;
+  const result = await adminService.adminEditProfile(id, req.body);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Admin profile updated successfully",
+    data: result,
+  });
+});
+
 export const adminController = {
   createCategory,
   getCategories,
@@ -397,4 +409,5 @@ export const adminController = {
   updateKnowledgeHubArticle,
   deleteKnowledgeHubArticle,
   getKnowledgeHubArticleById,
+  adminEditProfile,
 };

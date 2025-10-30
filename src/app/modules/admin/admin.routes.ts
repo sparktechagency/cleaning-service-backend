@@ -67,6 +67,13 @@ router.get(
   adminController.getKnowledgeHubArticles
 );
 
+router.put(
+  "/edit-profile",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.adminEditProfileSchema),
+  adminController.adminEditProfile
+);
+
 // Category management routes
 router.post(
   "/categories",

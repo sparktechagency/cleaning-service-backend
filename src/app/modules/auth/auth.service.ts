@@ -513,6 +513,18 @@ const resetPassword = async (
   return { message: "Password reset successfully" };
 };
 
+const checkTokenValidity = async (token: string) => {
+  try {
+    const decoded = jwtHelpers.verifyToken(
+      token,
+      config.jwt.jwt_secret as string
+    );
+    return { isValid: true, decoded };
+  } catch (error) {
+    return { isValid: false, error };
+  }
+};
+
 export const authService = {
   registerUser,
   verifyOtp,
@@ -524,4 +536,5 @@ export const authService = {
   resendOtp,
   verifyForgotPasswordOtp,
   resetPassword,
+  checkTokenValidity,
 };
