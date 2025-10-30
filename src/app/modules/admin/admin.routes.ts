@@ -74,6 +74,37 @@ router.put(
   adminController.adminEditProfile
 );
 
+// Website Content Routes
+router.put(
+  "/content/about-us",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.updateWebsiteContentSchema),
+  adminController.updateAboutUs
+);
+
+router.put(
+  "/content/privacy-policy",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.updateWebsiteContentSchema),
+  adminController.updatePrivacyPolicy
+);
+
+router.put(
+  "/content/terms-and-conditions",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.updateWebsiteContentSchema),
+  adminController.updateTermsAndConditions
+);
+
+router.get("/content/about-us", adminController.getAboutUs);
+
+router.get("/content/privacy-policy", adminController.getPrivacyPolicy);
+
+router.get(
+  "/content/terms-and-conditions",
+  adminController.getTermsAndConditions
+);
+
 // Category management routes
 router.post(
   "/categories",

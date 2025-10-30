@@ -383,6 +383,79 @@ const adminEditProfile = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateAboutUs = catchAsync(async (req: Request, res: Response) => {
+  const { text } = req.body;
+  const result = await adminService.updateAboutUs(text);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "About Us content updated successfully",
+    data: result,
+  });
+});
+
+const updatePrivacyPolicy = catchAsync(async (req: Request, res: Response) => {
+  const { text } = req.body;
+  const result = await adminService.updatePrivacyPolicy(text);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Privacy Policy content updated successfully",
+    data: result,
+  });
+});
+
+const updateTermsAndConditions = catchAsync(
+  async (req: Request, res: Response) => {
+    const { text } = req.body;
+    const result = await adminService.updateTermsAndConditions(text);
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Terms and Conditions content updated successfully",
+      data: result,
+    });
+  }
+);
+
+const getAboutUs = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.getAboutUs();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "About Us content retrieved successfully",
+    data: result,
+  });
+});
+
+const getPrivacyPolicy = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.getPrivacyPolicy();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Privacy Policy content retrieved successfully",
+    data: result,
+  });
+});
+
+const getTermsAndConditions = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await adminService.getTermsAndConditions();
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Terms and Conditions content retrieved successfully",
+      data: result,
+    });
+  }
+);
+
 export const adminController = {
   createCategory,
   getCategories,
@@ -410,4 +483,10 @@ export const adminController = {
   deleteKnowledgeHubArticle,
   getKnowledgeHubArticleById,
   adminEditProfile,
+  updateAboutUs,
+  updatePrivacyPolicy,
+  updateTermsAndConditions,
+  getAboutUs,
+  getPrivacyPolicy,
+  getTermsAndConditions,
 };

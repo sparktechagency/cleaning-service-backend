@@ -8,6 +8,7 @@ import { User } from "../../models/User.model";
 import { Booking } from "../booking/booking.model";
 import { Service } from "../service/service.model";
 import { KnowledgeHub } from "./knowledgeHub.model";
+import { WebsiteContent } from "./websiteContent.model";
 
 const createCategory = async (
   categoryData: Partial<ICategory>
@@ -1316,6 +1317,194 @@ const adminEditProfile = async (
   }
 };
 
+const updateAboutUs = async (text: string) => {
+  if (!text || typeof text !== "string" || text.trim() === "") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "About Us text is required and must be a non-empty string"
+    );
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    const result = await session.withTransaction(async () => {
+      let content = await WebsiteContent.findOne({ type: "aboutUs" }).session(
+        session
+      );
+
+      if (content) {
+        content.text = text.trim();
+        await content.save({ session });
+      } else {
+        const newContent = await WebsiteContent.create(
+          [
+            {
+              type: "aboutUs",
+              text: text.trim(),
+            },
+          ],
+          { session }
+        );
+        content = newContent[0];
+      }
+
+      return {
+        type: content.type,
+        text: content.text,
+        updatedAt: content.updatedAt,
+      };
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
+
+const updatePrivacyPolicy = async (text: string) => {
+  if (!text || typeof text !== "string" || text.trim() === "") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Privacy Policy text is required and must be a non-empty string"
+    );
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    const result = await session.withTransaction(async () => {
+      let content = await WebsiteContent.findOne({
+        type: "privacyPolicy",
+      }).session(session);
+
+      if (content) {
+        content.text = text.trim();
+        await content.save({ session });
+      } else {
+        const newContent = await WebsiteContent.create(
+          [
+            {
+              type: "privacyPolicy",
+              text: text.trim(),
+            },
+          ],
+          { session }
+        );
+        content = newContent[0];
+      }
+
+      return {
+        type: content.type,
+        text: content.text,
+        updatedAt: content.updatedAt,
+      };
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
+
+const updateTermsAndConditions = async (text: string) => {
+  if (!text || typeof text !== "string" || text.trim() === "") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Terms and Conditions text is required and must be a non-empty string"
+    );
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    const result = await session.withTransaction(async () => {
+      let content = await WebsiteContent.findOne({
+        type: "termsAndConditions",
+      }).session(session);
+
+      if (content) {
+        content.text = text.trim();
+        await content.save({ session });
+      } else {
+        const newContent = await WebsiteContent.create(
+          [
+            {
+              type: "termsAndConditions",
+              text: text.trim(),
+            },
+          ],
+          { session }
+        );
+        content = newContent[0];
+      }
+
+      return {
+        type: content.type,
+        text: content.text,
+        updatedAt: content.updatedAt,
+      };
+    });
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
+
+const getAboutUs = async () => {
+  const content = await WebsiteContent.findOne({ type: "aboutUs" });
+
+  if (!content) {
+    throw new ApiError(httpStatus.NOT_FOUND, "About Us content not found");
+  }
+
+  return {
+    type: content.type,
+    text: content.text,
+    createdAt: content.createdAt,
+    updatedAt: content.updatedAt,
+  };
+};
+
+const getPrivacyPolicy = async () => {
+  const content = await WebsiteContent.findOne({ type: "privacyPolicy" });
+
+  if (!content) {
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Privacy Policy content not found"
+    );
+  }
+
+  return {
+    type: content.type,
+    text: content.text,
+    createdAt: content.createdAt,
+    updatedAt: content.updatedAt,
+  };
+};
+
+const getTermsAndConditions = async () => {
+  const content = await WebsiteContent.findOne({
+    type: "termsAndConditions",
+  });
+
+  if (!content) {
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Terms and Conditions content not found"
+    );
+  }
+
+  return {
+    type: content.type,
+    text: content.text,
+    createdAt: content.createdAt,
+    updatedAt: content.updatedAt,
+  };
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -1343,4 +1532,10 @@ export const adminService = {
   getKnowledgeHubArticles,
   getKnowledgeHubArticleById,
   adminEditProfile,
+  updateAboutUs,
+  updatePrivacyPolicy,
+  updateTermsAndConditions,
+  getAboutUs,
+  getPrivacyPolicy,
+  getTermsAndConditions,
 };

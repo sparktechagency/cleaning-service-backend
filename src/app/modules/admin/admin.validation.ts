@@ -169,6 +169,15 @@ const adminEditProfileSchema = z.object({
   }),
 });
 
+const updateWebsiteContentSchema = z.object({
+  body: z.object({
+    text: z
+      .string({ required_error: "Content text is required" })
+      .min(10, "Content text must be at least 10 characters long")
+      .trim(),
+  }),
+});
+
 export const adminValidation = {
   createCategorySchema,
   updateCategorySchema,
@@ -185,4 +194,5 @@ export const adminValidation = {
   createKnowledgeHubArticleSchema,
   deleteKnowledgeHubArticleSchema,
   getKnowledgeHubArticleSchema,
+  updateWebsiteContentSchema,
 };
