@@ -1,7 +1,11 @@
 import { model, Schema, Document } from "mongoose";
 
 export interface IWebsiteContent extends Document {
-  type: "aboutUs" | "privacyPolicy" | "termsAndConditions";
+  type:
+    | "aboutUs"
+    | "privacyPolicy"
+    | "termsAndConditions"
+    | "affiliationProgram";
   text: string;
   createdAt: Date;
   updatedAt: Date;
@@ -13,7 +17,12 @@ const websiteContentSchema = new Schema<IWebsiteContent>(
       type: String,
       required: [true, "Content type is required"],
       enum: {
-        values: ["aboutUs", "privacyPolicy", "termsAndConditions"],
+        values: [
+          "aboutUs",
+          "privacyPolicy",
+          "termsAndConditions",
+          "affiliationProgram",
+        ],
         message: "{VALUE} is not a valid content type",
       },
       unique: true,

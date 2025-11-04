@@ -1530,6 +1530,65 @@ const updateTermsAndConditions = async (text: string) => {
   }
 };
 
+const updateAfialiationProgram = async (text: string) => {
+  if (!text || typeof text !== "string" || text.trim() === "") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Affiliation Program text is required and must be a non-empty string"
+    );
+  }
+
+  const session = await mongoose.startSession();
+
+  try {
+    const result = await session.withTransaction(async () => {
+      let content = await WebsiteContent.findOne({
+        type: "affiliationProgram",
+      }).session(session);
+
+      if (content) {
+        content.text = text.trim();
+        await content.save({ session });
+      } else {
+        const newContent = await WebsiteContent.create(
+          [
+            {
+              type: "affiliationProgram",
+              text: text.trim(),
+            },
+          ],
+          { session }
+        );
+        content = newContent[0];
+      }
+
+      return {
+        type: content.type,
+        text: content.text,
+        updatedAt: content.updatedAt,
+      };
+    });
+
+    // Send notifications to all users about the content update
+    const allUsers = await User.find({}, { _id: 1 });
+    const recipientIds = allUsers.map((user) => user._id.toString());
+
+    if (recipientIds.length > 0) {
+      await notificationService.createBulkNotifications(recipientIds, {
+        type: NotificationType.WEBSITE_CONTENT_UPDATED,
+        title: "Affiliation Program Updated",
+        message:
+          "Our Affiliation Program has been updated. Check out the new details!",
+        data: { contentType: "affiliationProgram" },
+      });
+    }
+
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
+
 const getAboutUs = async () => {
   const content = await WebsiteContent.findOne({ type: "aboutUs" });
 
@@ -1583,6 +1642,24 @@ const getTermsAndConditions = async () => {
   };
 };
 
+const getAfiliationProgram = async () => {
+  const content = await WebsiteContent.findOne({ type: "affiliationProgram" });
+
+  if (!content) {
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Affiliation Program content not found"
+    );
+  }
+
+  return {
+    type: content.type,
+    text: content.text,
+    createdAt: content.createdAt,
+    updatedAt: content.updatedAt,
+  };
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -1616,4 +1693,6 @@ export const adminService = {
   getAboutUs,
   getPrivacyPolicy,
   getTermsAndConditions,
+  updateAfialiationProgram,
+  getAfiliationProgram,
 };

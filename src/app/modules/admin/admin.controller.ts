@@ -475,6 +475,31 @@ const getTermsAndConditions = catchAsync(
   }
 );
 
+const updateAfialiationProgram = catchAsync(
+  async (req: Request, res: Response) => {
+    const { text } = req.body;
+    const result = await adminService.updateAfialiationProgram(text);
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Affiliation Program content updated successfully",
+      data: result,
+    });
+  }
+);
+
+const getAfiliationProgram = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.getAfiliationProgram();
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Affiliation Program content retrieved successfully",
+    data: result,
+  });
+});
+
 export const adminController = {
   createCategory,
   getCategories,
@@ -508,4 +533,6 @@ export const adminController = {
   getAboutUs,
   getPrivacyPolicy,
   getTermsAndConditions,
+  updateAfialiationProgram,
+  getAfiliationProgram,
 };

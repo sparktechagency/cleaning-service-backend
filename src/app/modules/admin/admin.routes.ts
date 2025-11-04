@@ -111,6 +111,18 @@ router.get(
   adminController.getTermsAndConditions
 );
 
+router.put(
+  "/content/affiliation-program",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.updateWebsiteContentSchema),
+  adminController.updateAfialiationProgram
+);
+
+router.get(
+  "/content/affiliation-program",
+  adminController.getAfiliationProgram
+);
+
 // Category management routes
 router.post(
   "/categories",
