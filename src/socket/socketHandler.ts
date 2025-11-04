@@ -218,5 +218,21 @@ export const socketHandler = (io: Server) => {
       io.emit("online_users", Array.from(onlineUsers.keys()));
       console.log(`User disconnected: ${userId}`);
     });
+
+    // Handle: Get unread notification count
+    socket.on("get_unread_count", async () => {
+      try {
+        const { Notification } = await import(
+          "../app/models/Notification.model"
+        );
+        const count = await Notification.countDocuments({
+          recipientId: userId,
+          isRead: false,
+        });
+        socket.emit("unread_count", { count });
+      } catch (error) {
+        console.error("Error getting unread count:", error);
+      }
+    });
   });
 };

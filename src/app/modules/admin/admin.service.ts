@@ -9,6 +9,8 @@ import { Booking } from "../booking/booking.model";
 import { Service } from "../service/service.model";
 import { KnowledgeHub } from "./knowledgeHub.model";
 import { WebsiteContent } from "./websiteContent.model";
+import * as notificationService from "../notification/notification.service";
+import { NotificationType } from "../../models";
 
 const createCategory = async (
   categoryData: Partial<ICategory>
@@ -1391,6 +1393,19 @@ const updateAboutUs = async (text: string) => {
       };
     });
 
+    // Send notifications to all users about the content update
+    const allUsers = await User.find({}, { _id: 1 });
+    const recipientIds = allUsers.map((user) => user._id.toString());
+
+    if (recipientIds.length > 0) {
+      await notificationService.createBulkNotifications(recipientIds, {
+        type: NotificationType.WEBSITE_CONTENT_UPDATED,
+        title: "About Us Updated",
+        message: "The About Us page has been updated. Check it out!",
+        data: { contentType: "aboutUs" },
+      });
+    }
+
     return result;
   } finally {
     await session.endSession();
@@ -1436,6 +1451,20 @@ const updatePrivacyPolicy = async (text: string) => {
       };
     });
 
+    // Send notifications to all users about the content update
+    const allUsers = await User.find({}, { _id: 1 });
+    const recipientIds = allUsers.map((user) => user._id.toString());
+
+    if (recipientIds.length > 0) {
+      await notificationService.createBulkNotifications(recipientIds, {
+        type: NotificationType.WEBSITE_CONTENT_UPDATED,
+        title: "Privacy Policy Updated",
+        message:
+          "Our Privacy Policy has been updated. Please review the changes.",
+        data: { contentType: "privacyPolicy" },
+      });
+    }
+
     return result;
   } finally {
     await session.endSession();
@@ -1480,6 +1509,20 @@ const updateTermsAndConditions = async (text: string) => {
         updatedAt: content.updatedAt,
       };
     });
+
+    // Send notifications to all users about the content update
+    const allUsers = await User.find({}, { _id: 1 });
+    const recipientIds = allUsers.map((user) => user._id.toString());
+
+    if (recipientIds.length > 0) {
+      await notificationService.createBulkNotifications(recipientIds, {
+        type: NotificationType.WEBSITE_CONTENT_UPDATED,
+        title: "Terms and Conditions Updated",
+        message:
+          "Our Terms and Conditions have been updated. Please review the changes.",
+        data: { contentType: "termsAndConditions" },
+      });
+    }
 
     return result;
   } finally {

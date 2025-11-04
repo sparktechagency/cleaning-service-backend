@@ -47,7 +47,7 @@ const completeRegistrationSchema = z.object({
       .string()
       .transform((val) => parseInt(val))
       .optional(),
-    plan: z.enum(["BASIC", "PRO"]).optional(),
+    plan: z.enum(["FREE", "SILVER", "GOLD", "PLATINUM"]).optional(),
     affiliationCondition: z
       .union([z.string(), z.boolean()])
       .transform((val) => val === "true" || val === true),

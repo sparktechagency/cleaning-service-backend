@@ -104,7 +104,7 @@ const UserSchema = new Schema<IUser>(
     },
     experience: {
       type: String,
-      enum: ["0-2", "2-5", "6-10", "11-20", "+20"],
+      enum: ["0-1", "1-5", "+5"],
     },
     profilePicture: {
       type: String,
@@ -128,8 +128,8 @@ const UserSchema = new Schema<IUser>(
     },
     plan: {
       type: String,
-      enum: ["BASIC", "PRO"],
-      default: "BASIC",
+      enum: ["FREE", "SILVER", "GOLD", "PLATINUM"],
+      default: "FREE",
     },
     address: {
       type: String,

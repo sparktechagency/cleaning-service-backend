@@ -6,6 +6,8 @@ import ApiError from "../../../errors/ApiErrors";
 import httpStatus from "http-status";
 import QRCode from "qrcode";
 import crypto from "crypto";
+import { notificationService } from "../notification/notification.service";
+import { NotificationType } from "../../models";
 
 type CreateBookingPayload = {
   serviceId: string;
@@ -91,8 +93,46 @@ const createBooking = async (
 
     await session.commitTransaction();
 
+    // Send notifications after transaction commits
+    const createdBooking = booking[0];
+
+    // Notify provider about new booking request
+    if (service.providerId) {
+      await notificationService.createNotification({
+        recipientId: service.providerId.toString(),
+        senderId: customerId,
+        type: NotificationType.BOOKING_CREATED,
+        title: "New Booking Request",
+        message: `You have a new pending booking request for ${service.name}`,
+        data: {
+          bookingId: createdBooking._id.toString(),
+          serviceId: service._id.toString(),
+          serviceName: service.name,
+          scheduledAt: createdBooking.scheduledAt,
+        },
+      });
+    }
+
+    // Notify owner/customer that booking was created
+    await notificationService.createNotification({
+      recipientId: customerId,
+      type: NotificationType.BOOKING_CREATED,
+      title: "Booking Request Sent",
+      message: `Your booking request for ${service.name} has been sent successfully`,
+      data: {
+        bookingId: createdBooking._id.toString(),
+        serviceId: service._id.toString(),
+        serviceName: service.name,
+        scheduledAt: createdBooking.scheduledAt,
+      },
+    });
+
     // Return populated booking
-    return;
+    const populatedBooking = await Booking.findById(createdBooking._id)
+      .populate("serviceId", "name rateByHour")
+      .populate("providerId", "userName profilePicture");
+
+    return populatedBooking;
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -352,7 +392,39 @@ const acceptBookingByProvider = async (
     bookingId,
     { status: "ONGOING" },
     { new: true }
-  );
+  ).populate("serviceId", "name");
+
+  // Send notifications
+  // Notify owner that booking was accepted
+  await notificationService.createNotification({
+    recipientId: updatedBooking!.customerId.toString(),
+    senderId: providerId,
+    type: NotificationType.BOOKING_ACCEPTED,
+    title: "Booking Accepted",
+    message: `Your booking request for ${
+      (updatedBooking!.serviceId as any).name
+    } has been confirmed by the provider`,
+    data: {
+      bookingId: bookingId,
+      serviceId: updatedBooking!.serviceId._id.toString(),
+      serviceName: (updatedBooking!.serviceId as any).name,
+    },
+  });
+
+  // Notify provider (confirmation for themselves)
+  await notificationService.createNotification({
+    recipientId: providerId,
+    type: NotificationType.BOOKING_ACCEPTED,
+    title: "Booking Confirmed",
+    message: `You have confirmed the booking request for ${
+      (updatedBooking!.serviceId as any).name
+    }`,
+    data: {
+      bookingId: bookingId,
+      serviceId: updatedBooking!.serviceId._id.toString(),
+      serviceName: (updatedBooking!.serviceId as any).name,
+    },
+  });
 
   return updatedBooking;
 };
@@ -538,7 +610,43 @@ const completeBookingByOwner = async (
     bookingId,
     { status: "COMPLETED" },
     { new: true }
-  );
+  )
+    .populate("serviceId", "name")
+    .populate("providerId", "userName");
+
+  // Send notifications
+  // Notify provider that booking was completed
+  if (updatedBooking!.providerId) {
+    await notificationService.createNotification({
+      recipientId: updatedBooking!.providerId.toString(),
+      senderId: ownerId,
+      type: NotificationType.BOOKING_COMPLETED,
+      title: "Booking Completed",
+      message: `You have successfully completed a booking for ${
+        (updatedBooking!.serviceId as any).name
+      }`,
+      data: {
+        bookingId: bookingId,
+        serviceId: updatedBooking!.serviceId._id.toString(),
+        serviceName: (updatedBooking!.serviceId as any).name,
+      },
+    });
+  }
+
+  // Notify owner that booking was completed
+  await notificationService.createNotification({
+    recipientId: ownerId,
+    type: NotificationType.BOOKING_COMPLETED,
+    title: "Service Completed",
+    message: `You have successfully enjoyed the service ${
+      (updatedBooking!.serviceId as any).name
+    }. You can now rate and review!`,
+    data: {
+      bookingId: bookingId,
+      serviceId: updatedBooking!.serviceId._id.toString(),
+      serviceName: (updatedBooking!.serviceId as any).name,
+    },
+  });
 
   return {
     booking: updatedBooking,
@@ -786,6 +894,23 @@ const giveRatingAndReview = async (
     }
 
     await session.commitTransaction();
+
+    // Send notification to provider about the rating
+    if (booking.providerId) {
+      await notificationService.createNotification({
+        recipientId: booking.providerId.toString(),
+        senderId: customerId,
+        type: NotificationType.BOOKING_RATED,
+        title: "New Rating Received",
+        message: `You received a ${rating}-star rating for your service`,
+        data: {
+          bookingId: bookingId,
+          serviceId: booking.serviceId._id.toString(),
+          rating: rating,
+          review: review,
+        },
+      });
+    }
 
     return {
       rating: rating,
