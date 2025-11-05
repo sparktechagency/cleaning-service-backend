@@ -345,32 +345,76 @@ const getIndividualUserDetails = async (userId: string) => {
   }
 };
 
-const getAllOwners = async () => {
-  const owners = await User.find({ role: "OWNER", isDeleted: { $ne: true } })
+const getAllOwners = async (
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  const query = { role: "OWNER", isDeleted: { $ne: true } };
+  const total = await User.countDocuments(query);
+
+  const owners = await User.find(query)
     .select(
       "_id profilePicture userName role createdAt phoneNumber email address"
     )
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
 
-  return owners;
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    owners,
+  };
 };
 
-const getAllProviders = async () => {
-  const providers = await User.find({
-    role: "PROVIDER",
-    isDeleted: { $ne: true },
-  })
+const getAllProviders = async (
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  const query = { role: "PROVIDER", isDeleted: { $ne: true } };
+  const total = await User.countDocuments(query);
+
+  const providers = await User.find(query)
     .select(
       "_id profilePicture userName role createdAt phoneNumber email address"
     )
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit);
 
-  return providers;
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    providers,
+  };
 };
 
-const searchUsers = async (searchTerm: string) => {
+const searchUsers = async (
+  searchTerm: string,
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
   if (!searchTerm || searchTerm.trim() === "") {
-    return [];
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      users: [],
+    };
   }
 
   const trimmedSearch = searchTerm.trim();
@@ -435,10 +479,27 @@ const searchUsers = async (searchTerm: string) => {
     return aUserNameLower.localeCompare(bUserNameLower);
   });
 
-  return sortedUsers;
+  const total = sortedUsers.length;
+  const paginatedUsers = sortedUsers.slice((page - 1) * limit, page * limit);
+
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    users: paginatedUsers,
+  };
 };
 
-const bookingRequestOverview = async () => {
+const bookingRequestOverview = async (
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  const total = await Booking.countDocuments();
+
   const bookings = await Booking.find()
     .populate({
       path: "customerId",
@@ -457,6 +518,8 @@ const bookingRequestOverview = async () => {
       },
     })
     .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
     .lean();
 
   const formattedBookings = bookings.map((booking: any) => ({
@@ -469,12 +532,33 @@ const bookingRequestOverview = async () => {
     status: booking.status,
   }));
 
-  return formattedBookings;
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    bookings: formattedBookings,
+  };
 };
 
-const searchBookingRequestOverview = async (searchTerm: string) => {
+const searchBookingRequestOverview = async (
+  searchTerm: string,
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
   if (!searchTerm || searchTerm.trim() === "") {
-    return [];
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      bookings: [],
+    };
   }
 
   const trimmedSearch = searchTerm.trim();
@@ -517,7 +601,15 @@ const searchBookingRequestOverview = async (searchTerm: string) => {
   }
 
   if (searchQuery.$or.length === 0) {
-    return [];
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      bookings: [],
+    };
   }
 
   // Find bookings matching the search criteria
@@ -593,7 +685,21 @@ const searchBookingRequestOverview = async (searchTerm: string) => {
     );
   });
 
-  return sortedBookings;
+  const total = sortedBookings.length;
+  const paginatedBookings = sortedBookings.slice(
+    (page - 1) * limit,
+    page * limit
+  );
+
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    bookings: paginatedBookings,
+  };
 };
 
 const changeUserStatus = async (userId: string, isActive: boolean) => {
@@ -747,10 +853,19 @@ const bookingUserOverview = async (bookingId: string) => {
   };
 };
 
-const ownerProfileStatus = async () => {
-  const owners = await User.find({ role: "OWNER", isDeleted: { $ne: true } })
+const ownerProfileStatus = async (
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  const query = { role: "OWNER", isDeleted: { $ne: true } };
+  const total = await User.countDocuments(query);
+
+  const owners = await User.find(query)
     .select("_id profilePicture userName role email phoneNumber")
     .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
     .lean();
 
   const ownersWithStats = await Promise.all(
@@ -789,16 +904,30 @@ const ownerProfileStatus = async () => {
     })
   );
 
-  return ownersWithStats;
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    owners: ownersWithStats,
+  };
 };
 
-const providerProfileStatus = async () => {
-  const providers = await User.find({
-    role: "PROVIDER",
-    isDeleted: { $ne: true },
-  })
+const providerProfileStatus = async (
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  const query = { role: "PROVIDER", isDeleted: { $ne: true } };
+  const total = await User.countDocuments(query);
+
+  const providers = await User.find(query)
     .select("_id profilePicture userName role email phoneNumber")
     .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
     .lean();
 
   const providersWithStats = await Promise.all(
@@ -837,12 +966,33 @@ const providerProfileStatus = async () => {
     })
   );
 
-  return providersWithStats;
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    providers: providersWithStats,
+  };
 };
 
-const searchForProfileStatus = async (searchTerm: string) => {
+const searchForProfileStatus = async (
+  searchTerm: string,
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
   if (!searchTerm || searchTerm.trim() === "") {
-    return [];
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      users: [],
+    };
   }
 
   const trimmedSearch = searchTerm.trim();
@@ -959,11 +1109,29 @@ const searchForProfileStatus = async (searchTerm: string) => {
     return aUserNameLower.localeCompare(bUserNameLower);
   });
 
-  return sortedUsers;
+  const total = sortedUsers.length;
+  const paginatedUsers = sortedUsers.slice((page - 1) * limit, page * limit);
+
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    users: paginatedUsers,
+  };
 };
 
-const bookingDetailsForSuspension = async () => {
-  const bookings = await Booking.find({ status: "COMPLETED" })
+const bookingDetailsForSuspension = async (
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  const query = { status: "COMPLETED" };
+  const total = await Booking.countDocuments(query);
+
+  const bookings = await Booking.find(query)
     .populate({
       path: "customerId",
       select: "userName profilePicture email status",
@@ -981,6 +1149,8 @@ const bookingDetailsForSuspension = async () => {
       },
     })
     .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
     .lean();
 
   const formattedBookings = bookings.map((booking: any) => ({
@@ -996,12 +1166,33 @@ const bookingDetailsForSuspension = async () => {
     providerAccountStatus: booking.providerId?.status,
   }));
 
-  return formattedBookings;
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    bookings: formattedBookings,
+  };
 };
 
-const searchBookingDetailsForSuspension = async (searchTerm: string) => {
+const searchBookingDetailsForSuspension = async (
+  searchTerm: string,
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
   if (!searchTerm || searchTerm.trim() === "") {
-    return [];
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      bookings: [],
+    };
   }
 
   const trimmedSearch = searchTerm.trim();
@@ -1045,7 +1236,15 @@ const searchBookingDetailsForSuspension = async (searchTerm: string) => {
   }
 
   if (searchQuery.$or.length === 0) {
-    return [];
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      bookings: [],
+    };
   }
 
   const bookings = await Booking.find(searchQuery)
@@ -1122,7 +1321,21 @@ const searchBookingDetailsForSuspension = async (searchTerm: string) => {
     );
   });
 
-  return sortedBookings;
+  const total = sortedBookings.length;
+  const paginatedBookings = sortedBookings.slice(
+    (page - 1) * limit,
+    page * limit
+  );
+
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    bookings: paginatedBookings,
+  };
 };
 
 const createKnowledgeHubArticle = async (

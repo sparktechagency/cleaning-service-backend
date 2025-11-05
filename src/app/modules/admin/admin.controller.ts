@@ -136,49 +136,53 @@ const getIndividualUserDetails = catchAsync(
 );
 
 const getAllOwners = catchAsync(async (req: Request, res: Response) => {
-  const result = await adminService.getAllOwners();
+  const result = await adminService.getAllOwners(req.query);
 
   sendResponse(res, {
     statusCode: 200,
     success: true,
     message: "Owners retrieved successfully",
-    data: result,
+    meta: result.pagination,
+    data: result.owners,
   });
 });
 
 const getAllProviders = catchAsync(async (req: Request, res: Response) => {
-  const result = await adminService.getAllProviders();
+  const result = await adminService.getAllProviders(req.query);
 
   sendResponse(res, {
     statusCode: 200,
     success: true,
     message: "Providers retrieved successfully",
-    data: result,
+    meta: result.pagination,
+    data: result.providers,
   });
 });
 
 const searchUsers = catchAsync(async (req: Request, res: Response) => {
   const { searchTerm } = req.params;
 
-  const result = await adminService.searchUsers(searchTerm);
+  const result = await adminService.searchUsers(searchTerm, req.query);
 
   sendResponse(res, {
     statusCode: 200,
     success: true,
     message: "Users retrieved successfully",
-    data: result,
+    meta: result.pagination,
+    data: result.users,
   });
 });
 
 const getBookingRequestOverview = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await adminService.bookingRequestOverview();
+    const result = await adminService.bookingRequestOverview(req.query);
 
     sendResponse(res, {
       statusCode: 200,
       success: true,
       message: "Booking requests retrieved successfully",
-      data: result,
+      meta: result.pagination,
+      data: result.bookings,
     });
   }
 );
@@ -187,13 +191,17 @@ const searchBookingRequests = catchAsync(
   async (req: Request, res: Response) => {
     const { searchTerm } = req.params;
 
-    const result = await adminService.searchBookingRequestOverview(searchTerm);
+    const result = await adminService.searchBookingRequestOverview(
+      searchTerm,
+      req.query
+    );
 
     sendResponse(res, {
       statusCode: 200,
       success: true,
       message: "Booking requests retrieved successfully",
-      data: result,
+      meta: result.pagination,
+      data: result.bookings,
     });
   }
 );
@@ -228,39 +236,42 @@ const getBookingUserOverview = catchAsync(
 
 const getOwnerProfileStatus = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await adminService.ownerProfileStatus();
+    const result = await adminService.ownerProfileStatus(req.query);
 
     sendResponse(res, {
       statusCode: 200,
       success: true,
       message: "Owner profile status retrieved successfully",
-      data: result,
+      meta: result.pagination,
+      data: result.owners,
     });
   }
 );
 
 const getProviderProfileStatus = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await adminService.providerProfileStatus();
+    const result = await adminService.providerProfileStatus(req.query);
 
     sendResponse(res, {
       statusCode: 200,
       success: true,
       message: "Provider profile status retrieved successfully",
-      data: result,
+      meta: result.pagination,
+      data: result.providers,
     });
   }
 );
 
 const getBookingDetailsForSuspension = catchAsync(
   async (req: Request, res: Response) => {
-    const result = await adminService.bookingDetailsForSuspension();
+    const result = await adminService.bookingDetailsForSuspension(req.query);
 
     sendResponse(res, {
       statusCode: 200,
       success: true,
       message: "Booking details for suspension retrieved successfully",
-      data: result,
+      meta: result.pagination,
+      data: result.bookings,
     });
   }
 );
@@ -269,14 +280,16 @@ const searchBookingDetailsForSuspension = catchAsync(
   async (req: Request, res: Response) => {
     const { searchTerm } = req.params;
     const result = await adminService.searchBookingDetailsForSuspension(
-      searchTerm
+      searchTerm,
+      req.query
     );
 
     sendResponse(res, {
       statusCode: 200,
       success: true,
       message: "Search booking details for suspension retrieved successfully",
-      data: result,
+      meta: result.pagination,
+      data: result.bookings,
     });
   }
 );
@@ -284,13 +297,17 @@ const searchBookingDetailsForSuspension = catchAsync(
 const searchForProfileStatus = catchAsync(
   async (req: Request, res: Response) => {
     const { searchTerm } = req.params;
-    const result = await adminService.searchForProfileStatus(searchTerm);
+    const result = await adminService.searchForProfileStatus(
+      searchTerm,
+      req.query
+    );
 
     sendResponse(res, {
       statusCode: 200,
       success: true,
       message: "Search profile status retrieved successfully",
-      data: result,
+      meta: result.pagination,
+      data: result.users,
     });
   }
 );
