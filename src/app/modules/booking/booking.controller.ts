@@ -164,6 +164,19 @@ const getProviderAllPendingBookings = catchAsync(async (req, res) => {
   });
 });
 
+const getProviderPendingBookingsForHomepage = catchAsync(async (req, res) => {
+  const result = await bookingService.getProviderPendingBookingsForHomepage(
+    req.user.id
+  );
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Pending bookings retrieved successfully",
+    data: result,
+  });
+});
+
 const getProviderAllOngoingBookings = catchAsync(async (req, res) => {
   const result = await bookingService.getProviderAllOngoingBookings(
     req.user.id
@@ -257,6 +270,7 @@ export const bookingController = {
   completeBookingByQRCode,
   getOwnerAllPendingBookings,
   getProviderAllPendingBookings,
+  getProviderPendingBookingsForHomepage,
   getProviderAllOngoingBookings,
   getOwnerAllOngoingBookings,
   getOwnerAllCancelledBookings,

@@ -41,6 +41,12 @@ router.get(
 );
 
 router.get(
+  "/provider/pending-bookings-homepage",
+  auth(UserRole.PROVIDER),
+  bookingController.getProviderPendingBookingsForHomepage
+);
+
+router.get(
   "/provider/ongoing-bookings",
   auth(UserRole.PROVIDER),
   bookingController.getProviderAllOngoingBookings

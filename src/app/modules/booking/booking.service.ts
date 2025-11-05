@@ -701,6 +701,45 @@ const getProviderAllPendingBookings = async (providerId: string) => {
   return transformedBookings;
 };
 
+// Helper function to calculate time ago format
+const getTimeAgo = (date: Date): string => {
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes}m ago`;
+  } else if (diffInHours < 24) {
+    return `${diffInHours}h ago`;
+  } else {
+    return `${diffInDays} day${diffInDays > 1 ? "s" : ""} ago`;
+  }
+};
+
+const getProviderPendingBookingsForHomepage = async (providerId: string) => {
+  const bookings = await Booking.find({
+    providerId: providerId,
+    status: "PENDING",
+  })
+    .populate("customerId", "userName profilePicture")
+    .sort({ createdAt: -1 }); // Sort by creation time (newest first)
+
+  const transformedBookings = bookings.map((booking) => {
+    const customer = booking.customerId as any;
+    return {
+      bookingId: booking._id,
+      ownerName: customer.userName,
+      ownerProfilePicture: customer.profilePicture || null,
+      bookingDateTime: booking.scheduledAt,
+      timeAgo: getTimeAgo(booking.createdAt),
+    };
+  });
+
+  return transformedBookings;
+};
+
 const getProviderAllOngoingBookings = async (providerId: string) => {
   const bookings = await Booking.find({
     providerId: providerId,
@@ -938,6 +977,7 @@ export const bookingService = {
   completeBookingByOwner,
   getOwnerAllPendingBookings,
   getProviderAllPendingBookings,
+  getProviderPendingBookingsForHomepage,
   getProviderAllOngoingBookings,
   getOwnerAllCancelledBookings,
   getProviderAllCancelledBookings,
