@@ -43,8 +43,20 @@ const sendMessage = catchAsync(async (req, res) => {
   });
 });
 
+const getUnreadMessageCount = catchAsync(async (req, res) => {
+  const result = await messageService.getUnreadMessageCount(req.user.id);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Unread message count retrieved successfully",
+    data: result,
+  });
+});
+
 export const messageController = {
   getUsersForSidebar,
   getMessages,
   sendMessage,
+  getUnreadMessageCount,
 };

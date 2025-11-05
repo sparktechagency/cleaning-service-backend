@@ -29,7 +29,27 @@ const getUsersForSidebar = async (loggedInUserId: string) => {
     _id: { $in: userIdsArray },
   }).select("_id userName email role profilePicture");
 
-  return filteredUsers;
+  // Get unread message count for each user
+  const usersWithUnreadCount = await Promise.all(
+    filteredUsers.map(async (user) => {
+      const unreadCount = await Message.countDocuments({
+        senderId: user._id,
+        receiverId: loggedInUserId,
+        isSeen: false,
+      });
+
+      return {
+        _id: user._id,
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+        profilePicture: user.profilePicture,
+        unreadCount,
+      };
+    })
+  );
+
+  return usersWithUnreadCount;
 };
 
 // Get messages between two users
@@ -40,6 +60,18 @@ const getMessages = async (myId: string, userToChatId: string) => {
       { senderId: userToChatId, receiverId: myId },
     ],
   }).sort({ createdAt: -1 });
+
+  // Mark all messages sent to me (where I am the receiver) as seen
+  await Message.updateMany(
+    {
+      senderId: userToChatId,
+      receiverId: myId,
+      isSeen: false,
+    },
+    {
+      $set: { isSeen: true },
+    }
+  );
 
   return messages;
 };
@@ -124,8 +156,21 @@ const sendMessage = async (
   return newMessage;
 };
 
+// Get count of how many people have sent unread messages
+const getUnreadMessageCount = async (userId: string) => {
+  const unreadMessages = await Message.find({
+    receiverId: userId,
+    isSeen: false,
+  }).distinct("senderId");
+
+  const unreadCount = unreadMessages.length;
+
+  return { unreadCount };
+};
+
 export const messageService = {
   getUsersForSidebar,
   getMessages,
   sendMessage,
+  getUnreadMessageCount,
 };
