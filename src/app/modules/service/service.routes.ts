@@ -16,6 +16,11 @@ const serviceUpload = upload.fields([{ name: "coverImages", maxCount: 5 }]);
 // Public routes
 router.get("/categories", serviceController.getCategories);
 router.get(
+  "/search-filter",
+  auth(UserRole.OWNER),
+  serviceController.searchAndFilterServices
+);
+router.get(
   "/",
   validateRequest(serviceValidation.getServicesSchema),
   serviceController.getAllServices

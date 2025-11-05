@@ -166,6 +166,23 @@ const getServiceRatingAndReview = catchAsync(
   }
 );
 
+const searchAndFilterServices = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await serviceService.searchAndFilterServices(req.query);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Services filtered successfully",
+      data: {
+        services: result.services,
+        total: result.total,
+        filters: result.filters,
+      },
+    });
+  }
+);
+
 export const serviceController = {
   getCategories,
   createService,
@@ -179,4 +196,5 @@ export const serviceController = {
   getServiceProviderDetails,
   getServiceProviderSchedule,
   getServiceRatingAndReview,
+  searchAndFilterServices,
 };

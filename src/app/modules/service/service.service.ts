@@ -5,6 +5,8 @@ import ApiError from "../../../errors/ApiErrors";
 import httpStatus from "http-status";
 import { Category } from "../admin/category.model";
 import { fileUploader } from "../../../helpers/fileUploader";
+import { Booking } from "../booking/booking.model";
+import haversineDistance from "../../../utils/HeversineDistance";
 
 const getAllCategories = async (options: { search?: string }) => {
   const { search } = options;
@@ -541,6 +543,326 @@ const getServiceProviderSchedule = async (serviceId: string) => {
   return service.workSchedule;
 };
 
+const searchAndFilterServices = async (queryParams: {
+  search?: string;
+  categoryId?: string;
+  date?: string; // Format: YYYY-MM-DD
+  time?: string; // Format: HH:MM
+  latitude?: string;
+  longitude?: string;
+  minPrice?: string;
+  maxPrice?: string;
+  experience?: string;
+  instantBooking?: string;
+  gender?: string;
+  language?: string;
+}) => {
+  try {
+    const {
+      search,
+      categoryId,
+      date,
+      time,
+      latitude,
+      longitude,
+      minPrice,
+      maxPrice,
+      experience,
+      instantBooking,
+      gender,
+      language,
+    } = queryParams;
+
+    // Step 1: Build base query for services
+    let serviceQuery: any = {};
+
+    // Search by name or description
+    if (search && search.trim()) {
+      serviceQuery.$or = [
+        { name: { $regex: search.trim(), $options: "i" } },
+        { description: { $regex: search.trim(), $options: "i" } },
+      ];
+    }
+
+    // Filter by category (if not "all")
+    if (categoryId && categoryId !== "all") {
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Invalid category ID");
+      }
+      serviceQuery.categoryId = categoryId;
+    }
+
+    // Filter by gender
+    if (gender && (gender === "Male" || gender === "Female")) {
+      serviceQuery.gender = gender;
+    }
+
+    // Filter by language
+    if (language && language.trim()) {
+      serviceQuery.languages = { $in: [language.trim()] };
+    }
+
+    // Filter by price range (rateByHour)
+    if (minPrice || maxPrice) {
+      const min = minPrice ? parseFloat(minPrice) : 0;
+      const max = maxPrice ? parseFloat(maxPrice) : Number.MAX_SAFE_INTEGER;
+
+      if (isNaN(min) || isNaN(max)) {
+        throw new ApiError(httpStatus.BAD_REQUEST, "Invalid price range");
+      }
+    }
+
+    // Filter by instant booking (needApproval field)
+    if (instantBooking) {
+      if (instantBooking.toLowerCase() === "yes") {
+        // User wants instant booking (no approval needed)
+        serviceQuery.needApproval = false;
+      } else if (instantBooking.toLowerCase() === "no") {
+        // User wants services that require approval
+        serviceQuery.needApproval = true;
+      }
+    }
+
+    // Step 2: Get services based on base query
+    let services = await Service.find(serviceQuery)
+      .populate("categoryId", "name description image")
+      .populate(
+        "providerId",
+        "userName email phoneNumber profilePicture lattitude longitude experience"
+      )
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Step 3: Filter by provider experience
+    if (experience && experience.trim()) {
+      const experienceYears = parseInt(experience);
+      if (!isNaN(experienceYears)) {
+        services = services.filter((service: any) => {
+          const provider = service.providerId;
+          if (!provider || !provider.experience) return false;
+
+          // Extract years from experience string
+          const providerExpMatch = provider.experience.match(/(\d+)/);
+          if (!providerExpMatch) return false;
+
+          const providerYears = parseInt(providerExpMatch[1]);
+          return providerYears >= experienceYears;
+        });
+      }
+    }
+
+    // Step 4: Filter by date and time (check for ongoing bookings)
+    if (date && time) {
+      try {
+        // Parse the date and time
+        const [year, month, day] = date.split("-").map(Number);
+        const [hours, minutes] = time.split(":").map(Number);
+
+        if (
+          isNaN(year) ||
+          isNaN(month) ||
+          isNaN(day) ||
+          isNaN(hours) ||
+          isNaN(minutes)
+        ) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            "Invalid date or time format. Use YYYY-MM-DD for date and HH:MM for time"
+          );
+        }
+
+        const selectedDateTime = new Date(year, month - 1, day, hours, minutes);
+
+        // Check if the date is in the past
+        if (selectedDateTime < new Date()) {
+          throw new ApiError(
+            httpStatus.BAD_REQUEST,
+            "Selected date and time cannot be in the past"
+          );
+        }
+
+        // Get day of week (0 = Sunday, 1 = Monday, etc.)
+        const dayOfWeek = selectedDateTime.getDay();
+        const dayNames = [
+          "sunday",
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday",
+        ];
+        const selectedDay = dayNames[dayOfWeek];
+
+        // Get all provider IDs from current services
+        const providerIds = services.map((service: any) =>
+          service.providerId._id.toString()
+        );
+
+        // Find providers with ongoing bookings at the selected date and time
+        const ongoingBookings = await Booking.find({
+          providerId: { $in: providerIds },
+          status: "ONGOING",
+          scheduledAt: {
+            $gte: new Date(selectedDateTime.getTime() - 60 * 60 * 1000), // 1 hour before
+            $lte: new Date(selectedDateTime.getTime() + 60 * 60 * 1000), // 1 hour after
+          },
+        }).select("providerId");
+
+        const busyProviderIds = ongoingBookings
+          .filter((booking) => booking.providerId)
+          .map((booking) => booking.providerId!.toString());
+
+        // Filter out services from busy providers and check work schedule
+        services = services.filter((service: any) => {
+          const provider = service.providerId;
+
+          // Remove if provider has ongoing booking
+          if (busyProviderIds.includes(provider._id.toString())) {
+            return false;
+          }
+
+          // Check if provider is available on the selected day
+          const workSchedule = service.workSchedule;
+          if (!workSchedule || !workSchedule[selectedDay]) {
+            return false;
+          }
+
+          const daySchedule = workSchedule[selectedDay];
+          if (!daySchedule.isAvailable) {
+            return false;
+          }
+
+          // Check if selected time is within provider's working hours
+          if (!daySchedule.startTime || !daySchedule.endTime) {
+            return false;
+          }
+
+          const [startHour, startMin] = daySchedule.startTime
+            .split(":")
+            .map(Number);
+          const [endHour, endMin] = daySchedule.endTime.split(":").map(Number);
+
+          const workStartTime = hours * 60 + minutes;
+          const scheduleStartTime = startHour * 60 + startMin;
+          const scheduleEndTime = endHour * 60 + endMin;
+
+          return (
+            workStartTime >= scheduleStartTime &&
+            workStartTime <= scheduleEndTime
+          );
+        });
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Error processing date and time filter"
+        );
+      }
+    }
+
+    // Step 5: Filter by location (20km radius)
+    if (latitude && longitude) {
+      const userLat = parseFloat(latitude);
+      const userLon = parseFloat(longitude);
+
+      if (isNaN(userLat) || isNaN(userLon)) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Invalid latitude or longitude"
+        );
+      }
+
+      if (userLat < -90 || userLat > 90 || userLon < -180 || userLon > 180) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "Latitude must be between -90 and 90, longitude between -180 and 180"
+        );
+      }
+
+      const RADIUS_KM = 20;
+
+      services = services.filter((service: any) => {
+        const provider = service.providerId;
+        if (!provider || !provider.lattitude || !provider.longitude) {
+          return false;
+        }
+
+        const distance = haversineDistance(
+          userLat,
+          userLon,
+          provider.lattitude,
+          provider.longitude
+        );
+
+        return distance <= RADIUS_KM;
+      });
+    }
+
+    // Step 6: Filter by price range (post-processing since rateByHour is string)
+    if (minPrice || maxPrice) {
+      const min = minPrice ? parseFloat(minPrice) : 0;
+      const max = maxPrice ? parseFloat(maxPrice) : Number.MAX_SAFE_INTEGER;
+
+      services = services.filter((service: any) => {
+        if (!service.rateByHour) return false;
+
+        const rate = parseFloat(service.rateByHour);
+        if (isNaN(rate)) return false;
+
+        return rate >= min && rate <= max;
+      });
+    }
+
+    // Step 7: Transform and format the response
+    const transformedServices = services.map((service: any) => ({
+      _id: service._id,
+      serviceName: service.name,
+      serviceImage:
+        service.coverImages && service.coverImages.length > 0
+          ? service.coverImages[0]
+          : null,
+      averageRating: service.ratingsAverage || 0,
+      providerName: service.providerId?.userName || "Unknown Provider",
+      providerProfilePicture: service.providerId?.profilePicture || null,
+      rateByHour: service.rateByHour,
+    }));
+
+    return {
+      success: true,
+      total: transformedServices.length,
+      services: transformedServices,
+      filters: {
+        search: search || null,
+        categoryId: categoryId || "all",
+        date: date || null,
+        time: time || null,
+        location:
+          latitude && longitude
+            ? { latitude, longitude, radius: "20km" }
+            : null,
+        priceRange:
+          minPrice || maxPrice
+            ? {
+                min: minPrice || "0",
+                max: maxPrice || "unlimited",
+              }
+            : null,
+        experience: experience || null,
+        instantBooking: instantBooking || null,
+        gender: gender || null,
+        language: language || null,
+      },
+    };
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      "Error searching and filtering services"
+    );
+  }
+};
+
 export const serviceService = {
   getAllCategories,
   createService,
@@ -553,4 +875,5 @@ export const serviceService = {
   deleteService,
   getServiceRatingAndReview,
   getServiceProviderSchedule,
+  searchAndFilterServices,
 };
