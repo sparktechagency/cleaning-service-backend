@@ -2,10 +2,10 @@ import httpStatus from "http-status";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 import { DistanceService } from "./distance.service";
-import { Request } from "express";
+import { Request, Response } from "express";
 
 // Calculate distance between two specific users
-const getDistanceBetween = catchAsync(async (req: Request, res) => {
+const getDistanceBetween = catchAsync(async (req: Request, res: Response) => {
   const { fromId, toId } = req.params;
 
   if (!fromId || !toId) {
@@ -32,7 +32,7 @@ const getDistanceBetween = catchAsync(async (req: Request, res) => {
 
 // Get nearby users for the authenticated user (GUEST can see nearby PROVIDERS)
 const getMyNearbyUsers = catchAsync(
-  async (req: Request & { user?: any }, res) => {
+  async (req: Request & { user?: any }, res: Response) => {
     if (!req.user?.id) {
       return sendResponse(res, {
         statusCode: httpStatus.UNAUTHORIZED,
@@ -73,8 +73,6 @@ const getMyNearbyUsers = catchAsync(
       role: "PROVIDER",
       limit,
     });
-
-    
 
     sendResponse(res, {
       statusCode: httpStatus.OK,

@@ -1,9 +1,10 @@
 import httpStatus from "http-status";
 import { messageService } from "./message.service";
+import { Request, Response } from "express";
 import catchAsync from "../../../shared/catchAsync";
 import sendResponse from "../../../shared/sendResponse";
 
-const getUsersForSidebar = catchAsync(async (req, res) => {
+const getUsersForSidebar = catchAsync(async (req: Request, res: Response) => {
   const result = await messageService.getUsersForSidebar(req.user.id);
 
   sendResponse(res, {
@@ -14,7 +15,7 @@ const getUsersForSidebar = catchAsync(async (req, res) => {
   });
 });
 
-const getMessages = catchAsync(async (req, res) => {
+const getMessages = catchAsync(async (req: Request, res: Response) => {
   const result = await messageService.getMessages(req.user.id, req.params.id);
 
   sendResponse(res, {
@@ -25,7 +26,7 @@ const getMessages = catchAsync(async (req, res) => {
   });
 });
 
-const sendMessage = catchAsync(async (req, res) => {
+const sendMessage = catchAsync(async (req: Request, res: Response) => {
   const { id: receiverId } = req.params;
   const senderId = req.user.id;
 
@@ -43,16 +44,18 @@ const sendMessage = catchAsync(async (req, res) => {
   });
 });
 
-const getUnreadMessageCount = catchAsync(async (req, res) => {
-  const result = await messageService.getUnreadMessageCount(req.user.id);
+const getUnreadMessageCount = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await messageService.getUnreadMessageCount(req.user.id);
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Unread message count retrieved successfully",
-    data: result,
-  });
-});
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Unread message count retrieved successfully",
+      data: result,
+    });
+  }
+);
 
 export const messageController = {
   getUsersForSidebar,

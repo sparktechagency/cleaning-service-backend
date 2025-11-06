@@ -95,4 +95,10 @@ router.get(
   serviceController.getServiceRatingAndReview
 );
 
+router.get(
+  "/provider/homepage-data",
+  auth(UserRole.PROVIDER),
+  serviceController.getProviderHomepageContentData
+);
+
 export const serviceRoutes = router;

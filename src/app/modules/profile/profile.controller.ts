@@ -1,9 +1,10 @@
 import httpStatus from "http-status";
+import { Request, Response } from "express";
 import sendResponse from "../../../shared/sendResponse";
 import catchAsync from "../../../shared/catchAsync";
 import { profileService } from "./profile.service";
 
-const getProviderProfile = catchAsync(async (req, res) => {
+const getProviderProfile = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const result = await profileService.getProviderProfile(userId);
 
@@ -15,23 +16,25 @@ const getProviderProfile = catchAsync(async (req, res) => {
   });
 });
 
-const updateProviderProfile = catchAsync(async (req, res) => {
-  const userId = req.user.id;
-  const result = await profileService.providerProfileInformation(
-    userId,
-    req.body,
-    req.file
-  );
+const updateProviderProfile = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user.id;
+    const result = await profileService.providerProfileInformation(
+      userId,
+      req.body,
+      req.file
+    );
 
-  sendResponse(res, {
-    statusCode: httpStatus.OK,
-    success: true,
-    message: "Provider profile updated successfully",
-    data: result,
-  });
-});
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Provider profile updated successfully",
+      data: result,
+    });
+  }
+);
 
-const getOwnerProfile = catchAsync(async (req, res) => {
+const getOwnerProfile = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const result = await profileService.getOwnerProfile(userId);
 
@@ -43,7 +46,7 @@ const getOwnerProfile = catchAsync(async (req, res) => {
   });
 });
 
-const updateOwnerProfile = catchAsync(async (req, res) => {
+const updateOwnerProfile = catchAsync(async (req: Request, res: Response) => {
   const userId = req.user.id;
   const result = await profileService.ownerProfileInformation(
     userId,

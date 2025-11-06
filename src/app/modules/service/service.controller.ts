@@ -183,6 +183,21 @@ const searchAndFilterServices = catchAsync(
   }
 );
 
+const getProviderHomepageContentData = catchAsync(
+  async (req: Request, res: Response) => {
+    const result = await serviceService.getProviderHomepageContentData(
+      req.user.id
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Provider homepage data retrieved successfully",
+      data: result,
+    });
+  }
+);
+
 export const serviceController = {
   getCategories,
   createService,
@@ -197,4 +212,5 @@ export const serviceController = {
   getServiceProviderSchedule,
   getServiceRatingAndReview,
   searchAndFilterServices,
+  getProviderHomepageContentData,
 };

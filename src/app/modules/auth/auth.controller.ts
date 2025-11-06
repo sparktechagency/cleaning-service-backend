@@ -44,7 +44,7 @@ const completeRegistration = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-const loginUser = catchAsync(async (req, res) => {
+const loginUser = catchAsync(async (req: Request, res: Response) => {
   const result = await authService.loginUser(req.body);
 
   // Set token in HTTP-only cookie for automatic authentication

@@ -7,6 +7,7 @@ import { Category } from "../admin/category.model";
 import { fileUploader } from "../../../helpers/fileUploader";
 import { Booking } from "../booking/booking.model";
 import haversineDistance from "../../../utils/HeversineDistance";
+import { messageService } from "../message/message.service";
 
 const getAllCategories = async (options: { search?: string }) => {
   const { search } = options;
@@ -863,6 +864,52 @@ const searchAndFilterServices = async (queryParams: {
   }
 };
 
+const getProviderHomepageContentData = async (providerId: string) => {
+  if (!mongoose.Types.ObjectId.isValid(providerId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid provider ID");
+  }
+
+  // Fetch provider details
+  const provider = await User.findById(providerId).select(
+    "lattitude longitude plan role"
+  );
+
+  if (!provider) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Provider not found");
+  }
+
+  if (provider.role !== "PROVIDER") {
+    throw new ApiError(
+      httpStatus.FORBIDDEN,
+      "This endpoint is only for providers"
+    );
+  }
+
+  // Get pending bookings count
+  const pendingBookingsCount = await Booking.countDocuments({
+    providerId: providerId,
+    status: "PENDING",
+  });
+
+  // Get unread message count (number of people with unread messages)
+  const unreadMessageData = await messageService.getUnreadMessageCount(
+    providerId
+  );
+
+  // Prepare response
+  const homepageData = {
+    location: {
+      latitude: provider.lattitude || null,
+      longitude: provider.longitude || null,
+    },
+    pendingBookings: pendingBookingsCount,
+    unreadMessages: unreadMessageData.unreadCount,
+    currentPlan: provider.plan || "FREE",
+  };
+
+  return homepageData;
+};
+
 export const serviceService = {
   getAllCategories,
   createService,
@@ -876,4 +923,5 @@ export const serviceService = {
   getServiceRatingAndReview,
   getServiceProviderSchedule,
   searchAndFilterServices,
+  getProviderHomepageContentData,
 };
