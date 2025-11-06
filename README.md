@@ -136,7 +136,6 @@ RESET_PASS_LINK=http://localhost:3000/reset-password
 - `messages_read` - Messages were read
 - `users_list_response` - Users list response
 
-**📖 Full Socket.IO Documentation**: See [SOCKET_MESSAGING_DOCUMENTATION.md](./SOCKET_MESSAGING_DOCUMENTATION.md)
 
 ## 🧪 Testing Socket.IO
 
@@ -147,20 +146,6 @@ RESET_PASS_LINK=http://localhost:3000/reset-password
 
 Alternatively, use the REST API endpoints with Thunder Client or Postman.
 
-## 🗄️ Database Seeding
-
-Generate test data with realistic images and users:
-
-```bash
-npm run seed
-```
-
-This creates:
-- 1 Admin user
-- 10 Customer accounts
-- 5 Service Provider accounts
-- 10 Services with real images
-- 83 Bookings (59 with ratings/reviews)
 
 **Default Password**: `12345678` for all accounts
 
