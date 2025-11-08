@@ -443,17 +443,17 @@ const getServiceOverview = async (serviceId: string) => {
 
   const transformedService = {
     _id: service._id,
-    serviceName: service.name,
-    coverImage:
+    name: service.name,
+    oneImage:
       service.coverImages && service.coverImages.length > 0
         ? service.coverImages[0]
         : null,
-    price: service.rateByHour,
+    rateByHour: service.rateByHour,
     lattitude: (service.providerId as any)?.lattitude || null,
     longitude: (service.providerId as any)?.longitude || null,
     averageRatings: service.ratingsAverage || 0,
     totalOrders: service.totalOrders || 0,
-    isApprovalRequired: service.needApproval || false,
+    instantBooking: service.needApproval || false,
     description: service.description || "",
     photos: service.coverImages || [],
   };
@@ -483,7 +483,7 @@ const getServiceProviderDetails = async (serviceId: string) => {
   const providerDetails = {
     _id: provider._id,
     profilePicture: provider.profilePicture || null,
-    userName: provider.userName,
+    name: provider.userName,
     address: provider.address || null,
     experience: provider.experience || null,
     aboutMe: provider.aboutMe || null,

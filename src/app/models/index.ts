@@ -4,6 +4,7 @@ export {
   UserRole,
   UserStatus,
   RegistrationStatus,
+  IReferredBy,
 } from "./User.model";
 
 export { TempUser, ITempUser } from "./TempUser.model";
@@ -13,3 +14,5 @@ export {
   INotification,
   NotificationType,
 } from "./Notification.model";
+
+export { Referral, IReferral, ReferralStatus } from "./Referral.model";

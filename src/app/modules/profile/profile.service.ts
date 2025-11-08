@@ -23,7 +23,7 @@ const getProviderProfile = async (userId: string) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid user ID");
   }
   const user = await User.findById(userId).select(
-    "profilePicture userName phoneNumber address aboutMe experience role"
+    "profilePicture userName phoneNumber address aboutMe experience role referralCode credits"
   );
 
   if (!user) {
@@ -45,6 +45,8 @@ const getProviderProfile = async (userId: string) => {
     address: user.address,
     aboutMe: user.aboutMe,
     experience: user.experience,
+    referralCode: user.referralCode,
+    credits: user.credits || 0,
   };
 };
 
@@ -141,7 +143,7 @@ const getOwnerProfile = async (userId: string) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid user ID");
   }
   const user = await User.findById(userId).select(
-    "profilePicture userName phoneNumber address role"
+    "profilePicture userName phoneNumber address role referralCode credits"
   );
 
   if (!user) {
@@ -161,6 +163,8 @@ const getOwnerProfile = async (userId: string) => {
     userName: user.userName,
     phoneNumber: user.phoneNumber,
     address: user.address,
+    referralCode: user.referralCode,
+    credits: user.credits || 0,
   };
 };
 

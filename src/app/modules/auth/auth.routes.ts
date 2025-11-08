@@ -56,13 +56,11 @@ router.put(
 );
 
 router.post("/forgot-password", AuthController.forgotPassword);
-
 router.post(
   "/resend-otp",
   validateRequest(authValidation.resendOtpSchema),
   AuthController.resendOtp
 );
-
 router.post(
   "/verify-forgot-password-otp",
   AuthController.verifyForgotPasswordOtp

@@ -18,6 +18,12 @@ export enum RegistrationStatus {
   COMPLETED = "COMPLETED", // Full registration completed
 }
 
+export interface IReferredBy {
+  userId: string;
+  userName: string;
+  referralCode: string;
+}
+
 export interface IUser extends Document {
   _id: string;
   userName: string;
@@ -25,7 +31,8 @@ export interface IUser extends Document {
   email: string;
   password: string;
   referralCode?: string;
-  referredBy?: string; // User ID of the person who referred this user
+  referredBy?: IReferredBy; // Details of the person who referred this user
+  credits?: number; // Credits earned from referrals
   lattitude?: number;
   longitude?: number;
   resultRange?: number;
@@ -79,9 +86,23 @@ const UserSchema = new Schema<IUser>(
       trim: true,
     },
     referredBy: {
-      type: String,
-      trim: true,
-      default: null,
+      userId: {
+        type: String,
+        trim: true,
+      },
+      userName: {
+        type: String,
+        trim: true,
+      },
+      referralCode: {
+        type: String,
+        trim: true,
+      },
+    },
+    credits: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     role: {
       type: String,
@@ -186,7 +207,7 @@ UserSchema.index({ role: 1 });
 UserSchema.index({ status: 1 });
 UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ phoneNumber: 1 }, { unique: true, sparse: true });
-UserSchema.index({ referralCode: 1 }, { sparse: true });
+UserSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
 UserSchema.index({ isDeleted: 1 });
 UserSchema.index({ emailVerificationOtpExpiry: 1 }, { expireAfterSeconds: 0 });
 UserSchema.index({ resetPasswordOtpExpiry: 1 }, { expireAfterSeconds: 0 });

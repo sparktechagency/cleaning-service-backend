@@ -7,8 +7,13 @@ import ApiError from "../../../errors/ApiErrors";
 import { jwtHelpers } from "../../../helpers/jwtHelpers";
 import emailSender from "../../../shared/emailSender";
 import { User, UserStatus, RegistrationStatus, TempUser } from "../../models";
+import { Referral } from "../../models/Referral.model";
 import { fileUploader } from "../../../helpers/fileUploader";
 import { generateOTPString } from "../../../utils/GenerateOTP";
+import {
+  generateUniqueReferralCode,
+  validateReferralCode,
+} from "../../../utils/ReferralCodeGenerator";
 import {
   EMAIL_VERIFICATION_TEMPLATE,
   PASSWORD_RESET_TEMPLATE,
@@ -234,13 +239,42 @@ const completeRegistration = async (registrationData: any, files: any) => {
       }
     }
 
+    // Generate unique referral code for the new user
+    const newUserReferralCode = await generateUniqueReferralCode();
+
+    // Process referral if user was referred by someone
+    let referrerUser = null;
+    let referredByData = null;
+
+    if (tempUser.referralCode && tempUser.referralCode.trim() !== "") {
+      // Validate the referral code
+      referrerUser = await validateReferralCode(tempUser.referralCode);
+
+      if (referrerUser) {
+        // Store referrer information
+        referredByData = {
+          userId: referrerUser._id.toString(),
+          userName: referrerUser.userName,
+          referralCode: referrerUser.referralCode,
+        };
+      } else {
+        console.warn(
+          `Invalid referral code provided: ${tempUser.referralCode}`
+        );
+        // Continue registration even if referral code is invalid
+        // Don't throw error, just log warning
+      }
+    }
+
     // Create final user with all data
     const userPayload: any = {
       userName: tempUser.userName,
       email: tempUser.email,
       phoneNumber: tempUser.phoneNumber,
       password: tempUser.password,
-      referralCode: tempUser.referralCode,
+      referralCode: newUserReferralCode,
+      referredBy: referredByData,
+      credits: 0,
       role: registrationData.role,
       lattitude: registrationData.lattitude,
       longitude: registrationData.longitude,
@@ -262,6 +296,29 @@ const completeRegistration = async (registrationData: any, files: any) => {
     }
 
     const [newUser] = await User.create([userPayload], { session });
+
+    // If there was a valid referrer, create referral record (credits awarded on first booking)
+    if (referrerUser && referredByData) {
+      // Create referral record with PENDING status
+      await Referral.create(
+        [
+          {
+            referrerId: referrerUser._id,
+            referrerName: referrerUser.userName,
+            referrerReferralCode: referrerUser.referralCode,
+            refereeId: newUser._id,
+            refereeName: newUser.userName,
+            refereeEmail: newUser.email,
+            creditsEarned: 0,
+            firstBookingCreditAwarded: false,
+            bonusTierCreditAwarded: false,
+            completedBookingsCount: 0,
+            status: "PENDING",
+          },
+        ],
+        { session }
+      );
+    }
 
     // Delete temp user after successful registration
     await TempUser.findByIdAndDelete(tempUser._id).session(session);

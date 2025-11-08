@@ -8,6 +8,7 @@ import QRCode from "qrcode";
 import crypto from "crypto";
 import { notificationService } from "../notification/notification.service";
 import { NotificationType } from "../../models";
+import { processReferralRewards } from "../../../utils/ReferralRewards";
 
 type CreateBookingPayload = {
   serviceId: string;
@@ -647,6 +648,9 @@ const completeBookingByOwner = async (
       serviceName: (updatedBooking!.serviceId as any).name,
     },
   });
+
+  // Process referral rewards (10 credits for first booking, 5 bonus for 3rd booking)
+  await processReferralRewards(ownerId);
 
   return {
     booking: updatedBooking,
