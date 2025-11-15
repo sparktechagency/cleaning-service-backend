@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { notificationService } from "../notification/notification.service";
 import { NotificationType } from "../../models";
 import { processReferralRewards } from "../../../utils/ReferralRewards";
+import { on } from "events";
 
 type CreateBookingPayload = {
   serviceId: string;
@@ -163,7 +164,7 @@ const getBookingsByCustomer = async (
     totalAmount: 1,
     status: 1,
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit);
@@ -175,6 +176,11 @@ const getBookingsByCustomer = async (
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -213,7 +219,7 @@ const getBookingsByProvider = async (
     totalAmount: 1,
     status: 1,
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 })
     .skip((page - 1) * limit)
     .limit(limit);
@@ -226,6 +232,11 @@ const getBookingsByProvider = async (
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -617,8 +628,9 @@ const completeBookingByOwner = async (
 
   // Send notifications
   // Notify provider that booking was completed
+  let providerIdStr: string | null = null;
   if (updatedBooking!.providerId) {
-    const providerIdStr =
+    providerIdStr =
       typeof updatedBooking!.providerId === "object"
         ? (updatedBooking!.providerId as any)._id?.toString()
         : (updatedBooking!.providerId as any)?.toString();
@@ -654,8 +666,16 @@ const completeBookingByOwner = async (
     },
   });
 
-  // Process referral rewards (10 credits for first booking, 5 bonus for 3rd booking)
+  // Process referral rewards for owner (10 credits for first booking, 5 bonus for 3rd booking)
   await processReferralRewards(ownerId);
+
+  // Process referral rewards for provider (10 credits for first service, 5 bonus for 3rd service)
+  if (providerIdStr) {
+    const { processProviderReferralRewards } = await import(
+      "../../../utils/ReferralRewards"
+    );
+    await processProviderReferralRewards(providerIdStr);
+  }
 
   return {
     booking: updatedBooking,
@@ -669,7 +689,7 @@ const getOwnerAllPendingBookings = async (ownerId: string) => {
     customerId: ownerId,
     status: "PENDING",
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 });
 
   const transformedBookings = bookings.map((booking) => ({
@@ -678,6 +698,11 @@ const getOwnerAllPendingBookings = async (ownerId: string) => {
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -692,7 +717,7 @@ const getProviderAllPendingBookings = async (providerId: string) => {
     providerId: providerId,
     status: "PENDING",
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 });
 
   const transformedBookings = bookings.map((booking) => ({
@@ -701,6 +726,11 @@ const getProviderAllPendingBookings = async (providerId: string) => {
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -754,7 +784,7 @@ const getProviderAllOngoingBookings = async (providerId: string) => {
     providerId: providerId,
     status: "ONGOING",
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 });
 
   const transformedBookings = bookings.map((booking) => ({
@@ -763,6 +793,11 @@ const getProviderAllOngoingBookings = async (providerId: string) => {
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -777,7 +812,7 @@ const getOwnerAllOngoingBookings = async (ownerId: string) => {
     customerId: ownerId,
     status: "ONGOING",
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 });
 
   const transformedBookings = bookings.map((booking) => ({
@@ -786,6 +821,11 @@ const getOwnerAllOngoingBookings = async (ownerId: string) => {
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -800,7 +840,7 @@ const getOwnerAllCancelledBookings = async (ownerId: string) => {
     customerId: ownerId,
     status: "CANCELLED",
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 });
 
   const transformedBookings = bookings.map((booking) => ({
@@ -809,6 +849,11 @@ const getOwnerAllCancelledBookings = async (ownerId: string) => {
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -823,7 +868,7 @@ const getProviderAllCancelledBookings = async (providerId: string) => {
     providerId: providerId,
     status: "CANCELLED",
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 });
 
   const transformedBookings = bookings.map((booking) => ({
@@ -832,6 +877,11 @@ const getProviderAllCancelledBookings = async (providerId: string) => {
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -846,7 +896,7 @@ const getProviderAllCompletedBookings = async (providerId: string) => {
     providerId: providerId,
     status: "COMPLETED",
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 });
 
   const transformedBookings = bookings.map((booking) => ({
@@ -855,6 +905,11 @@ const getProviderAllCompletedBookings = async (providerId: string) => {
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,
@@ -869,7 +924,7 @@ const getOwnerAllCompletedBookings = async (ownerId: string) => {
     customerId: ownerId,
     status: "COMPLETED",
   })
-    .populate("serviceId", "name rateByHour")
+    .populate("serviceId", "name rateByHour coverImages")
     .sort({ scheduledAt: 1 });
 
   const transformedBookings = bookings.map((booking) => ({
@@ -878,6 +933,11 @@ const getOwnerAllCompletedBookings = async (ownerId: string) => {
     ownerAddress: booking.address,
     ownerPhoneNumber: booking.phoneNumber,
     description: booking.description,
+    oneImage:
+      (booking.serviceId as any).coverImages &&
+      (booking.serviceId as any).coverImages.length > 0
+        ? (booking.serviceId as any).coverImages[0]
+        : null,
     priceByHour: (booking.serviceId as any).rateByHour,
     serviceDuration: booking.serviceDuration,
     totalAmount: booking.totalAmount,

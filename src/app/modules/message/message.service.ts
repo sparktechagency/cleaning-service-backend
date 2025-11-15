@@ -76,21 +76,63 @@ const getMessages = async (myId: string, userToChatId: string) => {
   return messages;
 };
 
-// Send message with image upload support
+// Send message with image upload support (handles both form-data files and base64/URL strings)
 const sendMessage = async (
   senderId: string,
   receiverId: string,
-  data: { text?: string; image?: string | string[] }
+  data: {
+    text?: string;
+    image?: string | string[];
+    files?: Express.Multer.File[];
+  }
 ) => {
-  const { text, image } = data;
+  const { text, image, files } = data;
 
-  if ((!text || text.trim() === "") && !image) {
+  // Validate that at least text or image/files are provided
+  if (
+    (!text || text.trim() === "") &&
+    !image &&
+    (!files || files.length === 0)
+  ) {
     throw new Error("Message must contain either text or image");
   }
 
-  // Handle image upload (single image or array of images)
+  // Handle image upload (supports both file uploads and base64/URL strings)
   let imageUrls: string[] = [];
-  if (image) {
+
+  // Priority 1: Handle file uploads from form-data (REST API)
+  if (files && files.length > 0) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+
+      try {
+        // Upload to Cloudinary using the file buffer
+        const uploadResponse = await cloudinary.uploader.upload(
+          `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+          {
+            folder: "message_images",
+            resource_type: "auto",
+            transformation: [
+              { width: 1000, height: 1000, crop: "limit" },
+              { quality: "auto:good" },
+              { format: "auto" },
+            ],
+          }
+        );
+        imageUrls.push(uploadResponse.secure_url);
+      } catch (cloudinaryError: any) {
+        console.error(
+          `Failed to upload image ${i + 1}:`,
+          cloudinaryError.message
+        );
+        throw new Error(
+          `Failed to upload image ${i + 1}: ${cloudinaryError.message}`
+        );
+      }
+    }
+  }
+  // Priority 2: Handle base64 strings or URLs (Socket.IO)
+  else if (image) {
     const imagesToProcess = Array.isArray(image) ? image : [image];
 
     for (let i = 0; i < imagesToProcess.length; i++) {
@@ -104,7 +146,7 @@ const sendMessage = async (
       if (currentImage.startsWith("http")) {
         imageUrls.push(currentImage);
       } else {
-        // Upload to Cloudinary
+        // Upload to Cloudinary (base64 string)
         try {
           const uploadResponse = await cloudinary.uploader.upload(
             currentImage,

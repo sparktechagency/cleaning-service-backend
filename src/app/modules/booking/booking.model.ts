@@ -30,6 +30,11 @@ export interface IBooking extends Document {
     method: PaymentMethod;
     status: PaymentStatus;
     transactionId?: string;
+    stripePaymentIntentId?: string;
+    stripeTransferId?: string;
+    refundId?: string;
+    refundedAt?: Date;
+    paidAt?: Date;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -63,12 +68,32 @@ const BookingSchema = new Schema<IBooking>(
       ref: "User",
       index: true,
     },
-    scheduledAt: { type: Date, required: true, index: true },
-    phoneNumber: { type: String, required: true, trim: true },
-    address: { type: AddressSchema, required: true },
-    description: { type: String, trim: true },
-    serviceDuration: { type: Number, required: true },
-    totalAmount: { type: Number, required: true },
+    scheduledAt: {
+      type: Date,
+      required: true,
+      index: true,
+    },
+    phoneNumber: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    address: {
+      type: AddressSchema,
+      required: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    serviceDuration: {
+      type: Number,
+      required: true,
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+    },
     status: {
       type: String,
       enum: ["PENDING", "ONGOING", "COMPLETED", "CANCELLED"],
@@ -93,7 +118,28 @@ const BookingSchema = new Schema<IBooking>(
         enum: ["UNPAID", "PAID", "REFUNDED"],
         default: "UNPAID",
       },
-      transactionId: { type: String, trim: true },
+      transactionId: {
+        type: String,
+        trim: true,
+      },
+      stripePaymentIntentId: {
+        type: String,
+        trim: true,
+      },
+      stripeTransferId: {
+        type: String,
+        trim: true,
+      },
+      refundId: {
+        type: String,
+        trim: true,
+      },
+      refundedAt: {
+        type: Date,
+      },
+      paidAt: {
+        type: Date,
+      },
     },
   },
   { timestamps: true }

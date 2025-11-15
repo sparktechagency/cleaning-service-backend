@@ -10,6 +10,8 @@ interface IProviderProfileUpdate {
   address?: string;
   aboutMe?: string;
   experience?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 interface IOwnerProfileUpdate {
@@ -23,7 +25,7 @@ const getProviderProfile = async (userId: string) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid user ID");
   }
   const user = await User.findById(userId).select(
-    "profilePicture userName phoneNumber address aboutMe experience role referralCode credits"
+    "profilePicture userName phoneNumber email address aboutMe experience role referralCode credits"
   );
 
   if (!user) {
@@ -42,6 +44,7 @@ const getProviderProfile = async (userId: string) => {
     profilePicture: user.profilePicture,
     userName: user.userName,
     phoneNumber: user.phoneNumber,
+    email: user.email,
     address: user.address,
     aboutMe: user.aboutMe,
     experience: user.experience,
@@ -120,7 +123,7 @@ const providerProfileInformation = async (
     new: true,
     runValidators: true,
     select:
-      "profilePicture userName phoneNumber address aboutMe experience role",
+      "profilePicture userName phoneNumber email address aboutMe experience role",
   });
 
   if (!updatedUser) {
@@ -132,6 +135,7 @@ const providerProfileInformation = async (
     profilePicture: updatedUser.profilePicture,
     userName: updatedUser.userName,
     phoneNumber: updatedUser.phoneNumber,
+    email: updatedUser.email,
     address: updatedUser.address,
     aboutMe: updatedUser.aboutMe,
     experience: updatedUser.experience,

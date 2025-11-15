@@ -4,12 +4,14 @@ import validateRequest from "../../middlewares/validateRequest";
 import { bookingController } from "./booking.controller";
 import { bookingValidation } from "./booking.validation";
 import { UserRole } from "../../models";
+import { checkBookingLimit } from "../../middlewares/subscriptionCheck";
 
 const router = express.Router();
 
 router.post(
   "/book-now",
   auth(UserRole.OWNER),
+  checkBookingLimit,
   validateRequest(bookingValidation.createBookingSchema),
   bookingController.createBooking
 );

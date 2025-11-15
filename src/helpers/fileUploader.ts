@@ -51,6 +51,9 @@ const uploadFile = upload.single("file");
 const uploadMultipleImage = upload.fields([{ name: "images", maxCount: 15 }]);
 const uploadMultipleFiles = upload.fields([{ name: "files", maxCount: 15 }]);
 
+// Upload for messages (text + multiple images)
+const uploadMessageFiles = upload.array("images", 10);
+
 // Upload profile and banner images
 const userMutipleFiles = upload.fields([
   { name: "file", maxCount: 1 },
@@ -188,6 +191,7 @@ export const fileUploader = {
   uploadMultipleImage,
   userMutipleFiles,
   uploadFile,
+  uploadMessageFiles,
   cloudinaryUpload,
   uploadToDigitalOcean,
   uploadToCloudinary,

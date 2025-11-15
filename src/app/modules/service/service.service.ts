@@ -220,17 +220,55 @@ const getAllServices = async (options: {
 
   const total = await Service.countDocuments(query);
 
+  // Get services with provider plan information for priority sorting
   const services = await Service.find(query)
     .populate("categoryId", "name description")
-    .populate("providerId", "userName email phoneNumber profilePicture")
-    .sort({ createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit)
+    .populate(
+      "providerId",
+      "userName email phoneNumber profilePicture plan badge"
+    )
     .select("-__v")
     .lean();
 
+  // Sort by subscription priority, then by rating, then by creation date
+  const sortedServices = services.sort((a: any, b: any) => {
+    // Define priority mapping (lower number = higher priority)
+    const priorityMap: Record<string, number> = {
+      PLATINUM: 1,
+      GOLD: 2,
+      SILVER: 3,
+      FREE: 4,
+    };
+
+    const aPlan = a.providerId?.plan || "FREE";
+    const bPlan = b.providerId?.plan || "FREE";
+    const aPriority = priorityMap[aPlan] || 5;
+    const bPriority = priorityMap[bPlan] || 5;
+
+    // First, sort by subscription priority
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+
+    // If same priority, sort by rating average
+    const aRating = a.ratingsAverage || 0;
+    const bRating = b.ratingsAverage || 0;
+    if (aRating !== bRating) {
+      return bRating - aRating;
+    }
+
+    // If same rating, sort by creation date (newest first)
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  // Apply pagination after sorting
+  const paginatedServices = sortedServices.slice(
+    (page - 1) * limit,
+    page * limit
+  );
+
   return {
-    services,
+    services: paginatedServices,
     pagination: {
       page,
       limit,

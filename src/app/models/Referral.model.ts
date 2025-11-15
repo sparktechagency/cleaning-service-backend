@@ -14,10 +14,14 @@ export interface IReferral extends Document {
   refereeId: mongoose.Types.ObjectId; // User who used the referral code
   refereeName: string;
   refereeEmail: string;
+  refereeRole: "OWNER" | "PROVIDER"; // Track referee's role
   creditsEarned: number;
-  firstBookingCreditAwarded: boolean; // Track if 10 credits for first booking awarded
-  bonusTierCreditAwarded: boolean; // Track if 5 credits bonus for 3 bookings awarded
-  completedBookingsCount: number; // Count of completed bookings by referee
+  firstBookingCreditAwarded: boolean; // Track if 10 credits for first booking awarded (OWNER)
+  bonusTierCreditAwarded: boolean; // Track if 5 credits bonus for 3 bookings awarded (OWNER)
+  completedBookingsCount: number; // Count of completed bookings by referee (OWNER only)
+  firstServiceCreditAwarded: boolean; // Track if 10 credits for first service awarded (PROVIDER)
+  bonusTierServiceCreditAwarded: boolean; // Track if 5 credits bonus for 3 services awarded (PROVIDER)
+  completedServicesCount: number; // Count of completed services by referee (PROVIDER only)
   status: ReferralStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +60,11 @@ const ReferralSchema = new Schema<IReferral>(
       trim: true,
       lowercase: true,
     },
+    refereeRole: {
+      type: String,
+      enum: ["OWNER", "PROVIDER"],
+      required: true,
+    },
     creditsEarned: {
       type: Number,
       required: true,
@@ -70,6 +79,19 @@ const ReferralSchema = new Schema<IReferral>(
       default: false,
     },
     completedBookingsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    firstServiceCreditAwarded: {
+      type: Boolean,
+      default: false,
+    },
+    bonusTierServiceCreditAwarded: {
+      type: Boolean,
+      default: false,
+    },
+    completedServicesCount: {
       type: Number,
       default: 0,
       min: 0,

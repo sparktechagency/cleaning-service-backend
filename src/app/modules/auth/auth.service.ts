@@ -297,7 +297,7 @@ const completeRegistration = async (registrationData: any, files: any) => {
 
     const [newUser] = await User.create([userPayload], { session });
 
-    // If there was a valid referrer, create referral record (credits awarded on first booking)
+    // If there was a valid referrer, create referral record (credits awarded on first booking/service)
     if (referrerUser && referredByData) {
       // Create referral record with PENDING status
       await Referral.create(
@@ -309,10 +309,14 @@ const completeRegistration = async (registrationData: any, files: any) => {
             refereeId: newUser._id,
             refereeName: newUser.userName,
             refereeEmail: newUser.email,
+            refereeRole: registrationData.role, // Track if referee is OWNER or PROVIDER
             creditsEarned: 0,
             firstBookingCreditAwarded: false,
             bonusTierCreditAwarded: false,
             completedBookingsCount: 0,
+            firstServiceCreditAwarded: false,
+            bonusTierServiceCreditAwarded: false,
+            completedServicesCount: 0,
             status: "PENDING",
           },
         ],
@@ -428,6 +432,9 @@ const getMyProfile = async (userId: string) => {
     status: 1,
     email: 1,
     profilePicture: 1,
+    aboutMe: 1,
+    experience: 1,
+    address: 1,
     lattitude: 1,
     longitude: 1,
     createdAt: 1,
@@ -615,8 +622,7 @@ const verifyForgotPasswordOtp = async (payload: {
 const resetPassword = async (
   email: string,
   newPassword: string,
-  confirmPassword: string,
-  otp: string
+  confirmPassword: string
 ) => {
   if (newPassword !== confirmPassword) {
     throw new ApiError(
@@ -631,12 +637,16 @@ const resetPassword = async (
     throw new ApiError(httpStatus.NOT_FOUND, "User not found!");
   }
 
+  // Verify OTP internally - check if user has a valid, non-expired OTP
   if (
-    user.resetPasswordOtp !== otp ||
+    !user.resetPasswordOtp ||
     !user.resetPasswordOtpExpiry ||
     user.resetPasswordOtpExpiry < new Date()
   ) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid or expired OTP!");
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "OTP verification required or OTP has expired. Please request a new OTP."
+    );
   }
 
   const hashedPassword = await bcrypt.hash(

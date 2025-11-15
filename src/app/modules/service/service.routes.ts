@@ -5,6 +5,11 @@ import validateRequest from "../../middlewares/validateRequest";
 import { serviceController } from "./service.controller";
 import { serviceValidation } from "./service.validation";
 import { UserRole } from "../../models";
+import {
+  checkServiceCreationLimit,
+  checkCategoryLimit,
+  checkStripeAccountActive,
+} from "../../middlewares/subscriptionCheck";
 
 const router = express.Router();
 
@@ -34,6 +39,9 @@ router.get(
 router.post(
   "/create",
   auth(UserRole.PROVIDER),
+  checkStripeAccountActive,
+  checkServiceCreationLimit,
+  checkCategoryLimit,
   serviceUpload,
   validateRequest(serviceValidation.createServiceSchema),
   serviceController.createService

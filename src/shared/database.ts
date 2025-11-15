@@ -1,7 +1,5 @@
 import mongoose from "mongoose";
 import config from "../config";
-import { User, UserRole } from "../app/models";
-import bcrypt from "bcrypt";
 
 async function connectMongoDB() {
   try {
@@ -13,8 +11,6 @@ async function connectMongoDB() {
       tlsAllowInvalidCertificates: true,
     });
     console.log("MongoDB connected successfully!");
-
-    await initiateSuperAdmin();
   } catch (error) {
     console.error("MongoDB connection error:", error);
     console.log("Attempting to reconnect in 5 seconds...");
@@ -36,33 +32,6 @@ mongoose.connection.on("error", (err) => {
 mongoose.connection.on("disconnected", () => {
   console.log("Mongoose disconnected from MongoDB");
 });
-
-async function initiateSuperAdmin() {
-  const hashedPassword = await bcrypt.hash(
-    "12345678",
-    Number(config.bcrypt_salt_rounds)
-  );
-  const payload = {
-    userName: "Super Admin",
-    email: "admin@gmail.com",
-    phoneNumber: "01234567890",
-    password: hashedPassword,
-    role: UserRole.ADMIN,
-    status: "ACTIVE",
-    lattitude: 23.8103,
-    longitude: 90.4125,
-    resultRange: 50,
-    plan: "PRO",
-  };
-
-  const isExistUser = await User.findOne({
-    email: payload.email,
-  });
-
-  if (isExistUser) return;
-
-  await User.create(payload);
-}
 
 connectMongoDB();
 

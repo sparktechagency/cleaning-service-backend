@@ -6,10 +6,15 @@ import cookieParser from "cookie-parser";
 import GlobalErrorHandler from "./app/middlewares/globalErrorHandler";
 import router from "./app/routes";
 import { LANDING_PAGE_TEMPLATE } from "./utils/Template";
+import { webhookController } from "./app/controllers/webhook.controller";
 
 const app: Application = express();
 export const corsOptions = {
-  origin: ["http://localhost:3001", "http://localhost:3000"],
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:517",
+    "http://localhost:3000",
+  ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -18,6 +23,14 @@ export const corsOptions = {
 // Middleware setup
 app.use(cors(corsOptions));
 app.use(cookieParser());
+
+// CRITICAL: Webhook endpoint must be registered BEFORE express.json() middleware
+app.post(
+  "/api/webhook/stripe",
+  express.raw({ type: "application/json" }),
+  webhookController.handleWebhook
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));

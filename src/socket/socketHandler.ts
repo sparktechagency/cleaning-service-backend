@@ -12,7 +12,8 @@ interface AuthenticatedSocket extends Socket {
 interface SendMessagePayload {
   receiverId: string;
   text?: string;
-  image?: string | string[];
+  image?: string | string[]; // Base64 strings or URLs
+  files?: Buffer[]; // Binary file data from Socket.IO
 }
 
 const onlineUsers = new Map<string, string>();
@@ -95,14 +96,60 @@ export const socketHandler = (io: Server) => {
       }
     });
 
-    // Handle: Send message
+    // Handle: Send message (supports text, base64 images, URLs, and binary file data)
     socket.on("send_message", async (payload: SendMessagePayload) => {
-      const { receiverId, text = "", image } = payload;
+      const { receiverId, text = "", image, files } = payload;
 
       try {
         let imageUrls: string[] = [];
 
-        if (image) {
+        // Priority 1: Handle binary file data (Buffer[])
+        if (files && Array.isArray(files) && files.length > 0) {
+          for (let i = 0; i < files.length; i++) {
+            const fileBuffer = files[i];
+
+            if (!Buffer.isBuffer(fileBuffer)) {
+              continue;
+            }
+
+            // Check file size (max 10MB)
+            if (fileBuffer.length > 10000000) {
+              socket.emit("message_error", {
+                error: `File ${i + 1} too large. Maximum size is 10MB.`,
+              });
+              return;
+            }
+
+            try {
+              // Convert buffer to base64 and upload to Cloudinary
+              const base64Image = `data:image/jpeg;base64,${fileBuffer.toString(
+                "base64"
+              )}`;
+              const uploadResponse = await cloudinary.uploader.upload(
+                base64Image,
+                {
+                  folder: "message_images",
+                  resource_type: "auto",
+                  transformation: [
+                    { width: 1000, height: 1000, crop: "limit" },
+                    { quality: "auto:good" },
+                    { format: "auto" },
+                  ],
+                }
+              );
+              imageUrls.push(uploadResponse.secure_url);
+            } catch (cloudinaryError: any) {
+              socket.emit("message_error", {
+                error: `Failed to upload file ${i + 1}: ${
+                  cloudinaryError.message
+                }`,
+              });
+              return;
+            }
+          }
+        }
+        // Priority 2: Handle base64 strings or URLs
+        else if (image) {
           const imagesToProcess = Array.isArray(image) ? image : [image];
 
           // Convert Buffer objects to base64 strings if needed
@@ -150,10 +197,6 @@ export const socketHandler = (io: Server) => {
                   }
                 );
                 currentImageUrl = uploadResponse.secure_url;
-                console.log(
-                  `Image ${i + 1} uploaded successfully:`,
-                  currentImageUrl
-                );
               } catch (cloudinaryError: any) {
                 socket.emit("message_error", {
                   error: `Failed to upload image ${i + 1}: ${
@@ -168,8 +211,7 @@ export const socketHandler = (io: Server) => {
           }
         }
 
-        console.log("imageUrls ", imageUrls);
-
+        // Validate that at least text or images are provided
         let messageText = text;
         if (!text || text.trim() === "") {
           if (imageUrls.length > 0) {
@@ -194,9 +236,6 @@ export const socketHandler = (io: Server) => {
         const receiverSocketId = onlineUsers.get(receiverId);
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("receive_message", createdMessage);
-          console.log("Message sent to receiver");
-        } else {
-          console.log("Receiver not online");
         }
 
         // Confirm to sender

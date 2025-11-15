@@ -8,6 +8,11 @@ import { bookingRoutes } from "../modules/booking/booking.routes";
 import { messageRoutes } from "../modules/message/message.routes";
 import { notificationRoutes } from "../modules/notification/notification.routes";
 import { referralRoutes } from "../modules/referral/referral.routes";
+import { subscriptionRoutes } from "../modules/subscription/subscription.routes";
+import { paymentRoutes } from "../modules/payment/payment.routes";
+import { stripeConnectRoutes } from "../modules/payment/stripeConnect.routes";
+import { redemptionRoutes } from "../modules/redemption/redemption.routes";
+import { transactionRoutes } from "../modules/transaction/transaction.routes";
 
 const router = express.Router();
 
@@ -47,6 +52,26 @@ const moduleRoutes = [
   {
     path: "/referral",
     route: referralRoutes,
+  },
+  {
+    path: "/subscription",
+    route: subscriptionRoutes,
+  },
+  {
+    path: "/payment",
+    route: paymentRoutes,
+  },
+  {
+    path: "/stripe-connect",
+    route: stripeConnectRoutes,
+  },
+  {
+    path: "/redemption",
+    route: redemptionRoutes,
+  },
+  {
+    path: "/transactions",
+    route: transactionRoutes,
   },
 ];
 

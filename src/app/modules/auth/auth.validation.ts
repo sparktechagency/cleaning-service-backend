@@ -39,10 +39,7 @@ const registerSchema = z.object({
 const completeRegistrationSchema = z.object({
   body: z.object({
     email: z.string().email("Invalid email format"),
-    otp: z
-      .string()
-      .length(6, "OTP must be 6 digits")
-      .optional(),
+    otp: z.string().length(6, "OTP must be 6 digits").optional(),
     role: z.enum(["PROVIDER", "OWNER"]),
     lattitude: z.string().transform((val) => parseFloat(val)),
     longitude: z.string().transform((val) => parseFloat(val)),
@@ -98,7 +95,6 @@ const resetPasswordValidationSchema = z.object({
       confirmPassword: z
         .string()
         .min(8, "Confirm password must be at least 8 characters long"),
-      otp: z.string().min(6, "OTP must be at least 6 characters long"),
     })
     .refine((data) => data.newPassword === data.confirmPassword, {
       message: "New password and confirm password do not match",

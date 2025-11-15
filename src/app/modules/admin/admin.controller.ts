@@ -100,7 +100,9 @@ const deleteCategory = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getTotalCount = catchAsync(async (req: Request, res: Response) => {
-  const result = await adminService.totalCount();
+  const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+  
+  const result = await adminService.totalCount(year);
 
   sendResponse(res, {
     statusCode: 200,

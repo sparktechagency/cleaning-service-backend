@@ -21,6 +21,12 @@ export default {
     app_pass: process.env.APP_PASS,
   },
 
+  stripe_key: process.env.STRIPE_SECRET_KEY,
+  stripe_webhook_secret: process.env.STRIPE_WEBHOOK_SECRET,
+  frontend_url: process.env.FRONTEND_URL || "http://localhost:3000",
+  payment_success_url: process.env.PAYMENT_SUCCESS_URL,
+  payment_cancel_url: process.env.PAYMENT_CANCEL_URL,
+
   mail_user: process.env.EMAIL_USER,
   mail_pass: process.env.EMAIL_PASS,
 

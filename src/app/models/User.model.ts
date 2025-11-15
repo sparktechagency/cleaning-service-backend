@@ -43,6 +43,12 @@ export interface IUser extends Document {
   selfieWithNID?: string;
   affiliationCondition: boolean;
   plan?: string;
+  badge?: string | null; // Badge based on subscription plan
+  stripeCustomerId?: string; // Stripe customer ID for payments (EUR)
+  stripeCustomerIdUSD?: string; // Old USD customer ID (kept for reference after EUR migration)
+  stripeAccountId?: string; // Stripe Connect account ID for providers (to receive payments)
+  stripeAccountStatus?: "pending" | "active" | "restricted" | "none"; // Status of Stripe Connect account
+  stripeOnboardingComplete?: boolean; // Whether provider completed Stripe onboarding
   address?: string;
   aboutMe?: string;
   role?: UserRole;
@@ -152,6 +158,39 @@ const UserSchema = new Schema<IUser>(
       enum: ["FREE", "SILVER", "GOLD", "PLATINUM"],
       default: "FREE",
     },
+    badge: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    stripeCustomerId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
+    stripeCustomerIdUSD: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+      // Old USD customer ID - kept for reference after EUR migration
+    },
+    stripeAccountId: {
+      type: String,
+      trim: true,
+      sparse: true,
+      index: true,
+    },
+    stripeAccountStatus: {
+      type: String,
+      enum: ["pending", "active", "restricted", "none"],
+      default: "none",
+    },
+    stripeOnboardingComplete: {
+      type: Boolean,
+      default: false,
+    },
     address: {
       type: String,
       trim: true,
@@ -209,8 +248,6 @@ UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.index({ phoneNumber: 1 }, { unique: true, sparse: true });
 UserSchema.index({ referralCode: 1 }, { unique: true, sparse: true });
 UserSchema.index({ isDeleted: 1 });
-UserSchema.index({ emailVerificationOtpExpiry: 1 }, { expireAfterSeconds: 0 });
-UserSchema.index({ resetPasswordOtpExpiry: 1 }, { expireAfterSeconds: 0 });
 
 export enum NotificationType {
   NORMAL = "NORMAL",

@@ -1,6 +1,7 @@
 import express from "express";
 import auth from "../../middlewares/auth";
 import { messageController } from "./message.controller";
+import { fileUploader } from "../../../helpers/fileUploader";
 
 const router = express.Router();
 
@@ -10,6 +11,12 @@ router.get("/unread-count", auth(), messageController.getUnreadMessageCount);
 
 router.get("/:id", auth(), messageController.getMessages);
 
-router.post("/:id", auth(), messageController.sendMessage);
+// Accept form-data with optional text and multiple images
+router.post(
+  "/:id",
+  auth(),
+  fileUploader.uploadMessageFiles,
+  messageController.sendMessage
+);
 
 export const messageRoutes = router;

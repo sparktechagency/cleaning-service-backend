@@ -30,11 +30,16 @@ const sendMessage = catchAsync(async (req: Request, res: Response) => {
   const { id: receiverId } = req.params;
   const senderId = req.user.id;
 
-  const result = await messageService.sendMessage(
-    senderId,
-    receiverId,
-    req.body
-  );
+  // Extract text from body (form-data)
+  const text = req.body.text;
+
+  // Extract uploaded files (images)
+  const files = req.files as Express.Multer.File[] | undefined;
+
+  const result = await messageService.sendMessage(senderId, receiverId, {
+    text,
+    files,
+  });
 
   sendResponse(res, {
     statusCode: httpStatus.CREATED,

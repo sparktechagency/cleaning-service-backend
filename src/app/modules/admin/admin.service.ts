@@ -200,8 +200,18 @@ const deleteCategory = async (
   }
 };
 
-const totalCount = async () => {
+const totalCount = async (year?: number) => {
+  // Use provided year or default to current year
+  const targetYear = year || new Date().getFullYear();
+
+  // Validate year range (e.g., between 2000 and current year + 1)
   const currentYear = new Date().getFullYear();
+  if (targetYear < 2000 || targetYear > currentYear + 1) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      `Invalid year. Please provide a year between 2000 and ${currentYear + 1}`
+    );
+  }
 
   const totalOwners = await User.countDocuments({
     role: "OWNER",
@@ -219,8 +229,8 @@ const totalCount = async () => {
         role: "OWNER",
         isDeleted: { $ne: true },
         createdAt: {
-          $gte: new Date(`${currentYear}-01-01`),
-          $lte: new Date(`${currentYear}-12-31T23:59:59`),
+          $gte: new Date(`${targetYear}-01-01`),
+          $lte: new Date(`${targetYear}-12-31T23:59:59`),
         },
       },
     },
@@ -287,7 +297,7 @@ const totalCount = async () => {
       totalProviders,
     },
     ownerOverview: {
-      year: currentYear,
+      year: targetYear,
       monthlyOverview: ownerMonthlyData,
     },
   };

@@ -143,9 +143,9 @@ const verifyForgotPasswordOtp = catchAsync(
 );
 
 const resetPassword = catchAsync(async (req: Request, res: Response) => {
-  const { email, newPassword, confirmPassword, otp } = req.body;
+  const { email, newPassword, confirmPassword } = req.body;
 
-  await authService.resetPassword(email, newPassword, confirmPassword, otp);
+  await authService.resetPassword(email, newPassword, confirmPassword);
 
   sendResponse(res, {
     statusCode: httpStatus.OK,

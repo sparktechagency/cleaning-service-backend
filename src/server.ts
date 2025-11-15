@@ -4,6 +4,7 @@ import config from "./config";
 import "./shared/database";
 import app from "./app";
 import { socketHandler } from "./socket/socketHandler";
+import { startSubscriptionCronJob } from "./cron/subscriptionCron";
 
 let server: Server;
 
@@ -23,6 +24,9 @@ async function startServer() {
 
   // Initialize socket handler
   socketHandler(io);
+
+  // Start subscription expiry cron job
+  startSubscriptionCronJob();
 }
 
 async function main() {
