@@ -174,3 +174,31 @@ export const getBookingPaymentHistory = catchAsync(
     });
   }
 );
+
+export const searchBookingPaymentHistory = catchAsync(
+  async (req: Request, res: Response) => {
+    const { searchTerm, page = 1, limit = 20 } = req.query;
+
+    if (!searchTerm || typeof searchTerm !== "string") {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Search term is required and must be a string"
+      );
+    }
+
+    const result = await transactionService.searchForBookingPaymentHistory(
+      searchTerm,
+      {
+        page: Number(page),
+        limit: Number(limit),
+      }
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Booking payment transactions search completed successfully",
+      data: result,
+    });
+  }
+);

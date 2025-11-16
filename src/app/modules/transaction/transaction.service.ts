@@ -618,6 +618,166 @@ const getBookingPaymentHistory = async (
   };
 };
 
+const searchForBookingPaymentHistory = async (
+  searchTerm: string,
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  if (!searchTerm || searchTerm.trim() === "") {
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      transactions: [],
+    };
+  }
+
+  const trimmedSearch = searchTerm.trim();
+  const regex = new RegExp(trimmedSearch, "i");
+
+  // Find matching users (owners and providers)
+  const matchingUsers = await User.find({
+    isDeleted: { $ne: true },
+    $or: [{ userName: regex }, { email: regex }, { phoneNumber: regex }],
+  }).select("_id");
+
+  const userIds = matchingUsers.map((user) => user._id);
+
+  const searchQuery: any = {
+    $or: [
+      { transactionType: TransactionType.BOOKING_PAYMENT },
+      { transactionType: TransactionType.BOOKING_REFUND },
+    ],
+    $and: [
+      { payerId: { $exists: true, $ne: null } },
+      { receiverId: { $exists: true, $ne: null } },
+    ],
+  };
+
+  // Add user search criteria
+  if (userIds.length > 0) {
+    searchQuery.$and.push({
+      $or: [{ payerId: { $in: userIds } }, { receiverId: { $in: userIds } }],
+    });
+  } else {
+    // If no matching users found, also check transaction ID
+    searchQuery.$and.push({
+      transactionId: regex,
+    });
+  }
+
+  // Find transactions matching the search criteria
+  const transactions = await Transaction.find(searchQuery)
+    .populate("payerId", "userName email")
+    .populate("receiverId", "userName email")
+    .populate("bookingId", "bookingId serviceType")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Format the results
+  const formattedTransactions = transactions.map((transaction: any) => ({
+    ownerName: transaction.payerId?.userName || transaction.payerName,
+    providerName: transaction.receiverId?.userName || transaction.receiverName,
+    createdAt: transaction.createdAt,
+    ownerEmail: transaction.payerId?.email,
+    providerEmail: transaction.receiverId?.email,
+    transactionId: transaction.transactionId,
+    amount: transaction.amount,
+    transactionType: transaction.transactionType,
+    status: transaction.status,
+  }));
+
+  // Sort by relevance
+  const searchLower = trimmedSearch.toLowerCase();
+  const sortedTransactions = formattedTransactions.sort((a: any, b: any) => {
+    const aOwnerLower = (a.ownerName || "").toLowerCase();
+    const aProviderLower = (a.providerName || "").toLowerCase();
+    const aOwnerEmailLower = (a.ownerEmail || "").toLowerCase();
+    const aProviderEmailLower = (a.providerEmail || "").toLowerCase();
+    const aTransactionIdLower = (a.transactionId || "").toLowerCase();
+
+    const bOwnerLower = (b.ownerName || "").toLowerCase();
+    const bProviderLower = (b.providerName || "").toLowerCase();
+    const bOwnerEmailLower = (b.ownerEmail || "").toLowerCase();
+    const bProviderEmailLower = (b.providerEmail || "").toLowerCase();
+    const bTransactionIdLower = (b.transactionId || "").toLowerCase();
+
+    let scoreA = 0;
+    if (aOwnerLower === searchLower || aOwnerEmailLower === searchLower)
+      scoreA = 1000;
+    else if (
+      aProviderLower === searchLower ||
+      aProviderEmailLower === searchLower
+    )
+      scoreA = 900;
+    else if (aTransactionIdLower === searchLower) scoreA = 800;
+    else if (aOwnerLower.startsWith(searchLower)) scoreA = 700;
+    else if (aProviderLower.startsWith(searchLower)) scoreA = 600;
+    else if (aTransactionIdLower.startsWith(searchLower)) scoreA = 500;
+    else if (
+      aOwnerLower.includes(searchLower) ||
+      aOwnerEmailLower.includes(searchLower)
+    )
+      scoreA = 400;
+    else if (
+      aProviderLower.includes(searchLower) ||
+      aProviderEmailLower.includes(searchLower)
+    )
+      scoreA = 300;
+    else if (aTransactionIdLower.includes(searchLower)) scoreA = 200;
+
+    let scoreB = 0;
+    if (bOwnerLower === searchLower || bOwnerEmailLower === searchLower)
+      scoreB = 1000;
+    else if (
+      bProviderLower === searchLower ||
+      bProviderEmailLower === searchLower
+    )
+      scoreB = 900;
+    else if (bTransactionIdLower === searchLower) scoreB = 800;
+    else if (bOwnerLower.startsWith(searchLower)) scoreB = 700;
+    else if (bProviderLower.startsWith(searchLower)) scoreB = 600;
+    else if (bTransactionIdLower.startsWith(searchLower)) scoreB = 500;
+    else if (
+      bOwnerLower.includes(searchLower) ||
+      bOwnerEmailLower.includes(searchLower)
+    )
+      scoreB = 400;
+    else if (
+      bProviderLower.includes(searchLower) ||
+      bProviderEmailLower.includes(searchLower)
+    )
+      scoreB = 300;
+    else if (bTransactionIdLower.includes(searchLower)) scoreB = 200;
+
+    if (scoreB !== scoreA) {
+      return scoreB - scoreA;
+    }
+
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  const total = sortedTransactions.length;
+  const paginatedTransactions = sortedTransactions.slice(
+    (page - 1) * limit,
+    page * limit
+  );
+
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    transactions: paginatedTransactions,
+  };
+};
+
 export const transactionService = {
   recordSubscriptionPurchase,
   recordBookingPayment,
@@ -630,4 +790,5 @@ export const transactionService = {
   getTransactionStats,
   getRevenueStats,
   getBookingPaymentHistory,
+  searchForBookingPaymentHistory,
 };
