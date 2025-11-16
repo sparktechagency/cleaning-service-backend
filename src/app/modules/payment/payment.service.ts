@@ -124,8 +124,8 @@ const createBookingPayment = async (bookingId: string, ownerId: string) => {
 
   if (!providerUser || !providerUser.stripeAccountId) {
     throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Provider has not connected their Stripe account. Cannot process payment."
+      httpStatus.PAYMENT_REQUIRED,
+      "Provider has not connected their payment account. Cannot process payment."
     );
   }
 
@@ -134,8 +134,8 @@ const createBookingPayment = async (bookingId: string, ownerId: string) => {
     providerUser.stripeAccountStatus !== "active"
   ) {
     throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Provider's Stripe account is not active. Cannot process payment."
+      httpStatus.PAYMENT_REQUIRED,
+      "Provider's payment account is not fully activated. Cannot process payment."
     );
   }
 

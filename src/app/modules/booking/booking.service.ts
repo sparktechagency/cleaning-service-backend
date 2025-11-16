@@ -84,8 +84,8 @@ const createBooking = async (
   const provider = service.providerId as any;
   if (!provider || !provider.stripeAccountId) {
     throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Provider has not connected their Stripe account. Cannot create booking."
+      httpStatus.PAYMENT_REQUIRED,
+      "This provider has not connected their payment account yet. Please choose another provider or try again later."
     );
   }
 
@@ -94,8 +94,8 @@ const createBooking = async (
     provider.stripeAccountStatus !== "active"
   ) {
     throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Provider's Stripe account is not active. Cannot create booking."
+      httpStatus.PAYMENT_REQUIRED,
+      "This provider's payment account is not fully activated yet. Please choose another provider or try again later."
     );
   }
 

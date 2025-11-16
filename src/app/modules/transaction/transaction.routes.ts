@@ -40,11 +40,11 @@ router.get(
   transactionController.getRevenueStats
 );
 // Get specific transaction by ID (must be last to avoid conflicts)
-router.get(
-  "/:id",
-  auth("OWNER", "PROVIDER", "ADMIN", "SUPER_ADMIN"),
-  transactionController.getTransactionById
-);
+// router.get(
+//   "/:id",
+//   auth("OWNER", "PROVIDER", "ADMIN", "SUPER_ADMIN"),
+//   transactionController.getTransactionById
+// );
 
 // Get booking payment transaction history (ALL booking payment transactions)
 router.get(
@@ -58,6 +58,13 @@ router.get(
   "/booking-payments/search",
   auth("ADMIN"),
   transactionController.searchBookingPaymentHistory
+);
+
+// Get subscription payment tracking
+router.get(
+  "/payment-tracking",
+  auth("ADMIN"),
+  transactionController.getPaymentTracking
 );
 
 export const transactionRoutes = router;

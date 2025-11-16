@@ -778,6 +778,57 @@ const searchForBookingPaymentHistory = async (
   };
 };
 
+const paymentTracking = async (
+  options: {
+    page?: number;
+    limit?: number;
+  } = {}
+) => {
+  const page = options.page || 1;
+  const limit = options.limit || 20;
+  const skip = (page - 1) * limit;
+
+  const query: any = {
+    $or: [
+      { transactionType: TransactionType.SUBSCRIPTION_PURCHASE },
+      { transactionType: TransactionType.SUBSCRIPTION_RENEWAL },
+    ],
+    status: TransactionStatus.COMPLETED,
+  };
+
+  const [transactions, total] = await Promise.all([
+    Transaction.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate("payerId", "userName email phoneNumber")
+      .populate("subscriptionId")
+      .lean(),
+    Transaction.countDocuments(query),
+  ]);
+
+  // Format response with requested fields
+  const formattedTransactions = transactions.map((transaction: any) => ({
+    providerName: transaction.payerId?.userName || transaction.payerName,
+    createdAt: transaction.createdAt,
+    Package: transaction.subscriptionId?.plan || transaction.metadata?.plan,
+    providerEmail: transaction.payerId?.email,
+    providerPhoneNumber: transaction.payerId?.phoneNumber,
+    transactionId: transaction.transactionId,
+    amount: transaction.amount,
+  }));
+
+  return {
+    transactions: formattedTransactions,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
 export const transactionService = {
   recordSubscriptionPurchase,
   recordBookingPayment,
@@ -791,4 +842,5 @@ export const transactionService = {
   getRevenueStats,
   getBookingPaymentHistory,
   searchForBookingPaymentHistory,
+  paymentTracking,
 };

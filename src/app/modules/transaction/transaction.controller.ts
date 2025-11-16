@@ -202,3 +202,21 @@ export const searchBookingPaymentHistory = catchAsync(
     });
   }
 );
+
+export const getPaymentTracking = catchAsync(
+  async (req: Request, res: Response) => {
+    const { page = 1, limit = 20 } = req.query;
+
+    const result = await transactionService.paymentTracking({
+      page: Number(page),
+      limit: Number(limit),
+    });
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Subscription payment tracking retrieved successfully",
+      data: result,
+    });
+  }
+);

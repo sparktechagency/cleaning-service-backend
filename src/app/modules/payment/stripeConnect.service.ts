@@ -80,6 +80,22 @@ const createOnboardingLink = async (userId: string) => {
   if (!accountId) {
     const result = await createConnectAccount(userId);
     accountId = result.accountId;
+  } else {
+    // Verify account still exists on Stripe
+    try {
+      await stripe.accounts.retrieve(accountId);
+    } catch (error: any) {
+      if (
+        error.code === "account_invalid" ||
+        error.type === "StripePermissionError"
+      ) {
+        // Account no longer exists, create new one
+        const result = await createConnectAccount(userId);
+        accountId = result.accountId;
+      } else {
+        throw error;
+      }
+    }
   }
 
   // Get frontend URL and ensure it has protocol
@@ -125,6 +141,7 @@ const checkAccountStatus = async (userId: string) => {
       connected: false,
       status: "none",
       canReceivePayments: false,
+      needsOnboarding: true,
       message:
         "No Stripe account connected. Please connect your account to receive payments.",
     };
@@ -135,15 +152,80 @@ const checkAccountStatus = async (userId: string) => {
     const account = await stripe.accounts.retrieve(user.stripeAccountId);
 
     const isActive = account.charges_enabled && account.payouts_enabled;
-    const status = isActive
-      ? "active"
-      : account.requirements?.disabled_reason || "pending";
+    const detailsSubmitted = account.details_submitted || false;
+    const hasCurrentlyDue =
+      account.requirements?.currently_due &&
+      account.requirements.currently_due.length > 0;
+    const hasPastDue =
+      account.requirements?.past_due &&
+      account.requirements.past_due.length > 0;
 
-    // Update user status
+    // Determine precise status
+    let status: string;
+    let needsOnboarding = false;
+    let message: string;
+
+    if (isActive) {
+      status = "active";
+      message = "Your Stripe account is active and ready to receive payments";
+    } else if (hasPastDue) {
+      status = "requirements.past_due";
+      needsOnboarding = true;
+      message =
+        "Your Stripe account setup is incomplete. Please complete the onboarding to receive payments.";
+    } else if (hasCurrentlyDue && !detailsSubmitted) {
+      status = "onboarding_incomplete";
+      needsOnboarding = true;
+      message =
+        "Please complete your Stripe account onboarding to receive payments.";
+    } else if (hasCurrentlyDue && detailsSubmitted) {
+      status = "pending_verification";
+      needsOnboarding = false;
+      message =
+        "Your Stripe account is under review. This usually takes 1-2 business days.";
+    } else if (account.requirements?.disabled_reason) {
+      status = account.requirements.disabled_reason;
+      needsOnboarding =
+        account.requirements.disabled_reason.includes("requirements");
+      message = `Account status: ${account.requirements.disabled_reason}. ${
+        needsOnboarding
+          ? "Please complete the onboarding process."
+          : "Please contact support for assistance."
+      }`;
+    } else {
+      status = "pending";
+      needsOnboarding = true;
+      message = "Please complete your Stripe account setup to receive payments";
+    }
+
+    // Update user status in database
     await User.findByIdAndUpdate(userId, {
       stripeAccountStatus: isActive ? "active" : "pending",
       stripeOnboardingComplete: isActive,
     });
+
+    // Generate new onboarding link if needed
+    let onboardingUrl = null;
+    if (needsOnboarding && !isActive) {
+      try {
+        const frontendUrl = config.frontend_url;
+        const baseUrl = frontendUrl.startsWith("http")
+          ? frontendUrl
+          : `https://${frontendUrl}`;
+        const rolePath = user.role === "PROVIDER" ? "provider" : "owner";
+
+        const accountLink = await stripe.accountLinks.create({
+          account: user.stripeAccountId,
+          refresh_url: `${baseUrl}/${rolePath}/stripe-connect/refresh`,
+          return_url: `${baseUrl}/${rolePath}/stripe-connect/complete`,
+          type: "account_onboarding",
+        });
+
+        onboardingUrl = accountLink.url;
+      } catch (linkError) {
+        console.error("Failed to create onboarding link:", linkError);
+      }
+    }
 
     return {
       connected: true,
@@ -151,11 +233,11 @@ const checkAccountStatus = async (userId: string) => {
       canReceivePayments: isActive,
       chargesEnabled: account.charges_enabled,
       payoutsEnabled: account.payouts_enabled,
-      detailsSubmitted: account.details_submitted,
+      detailsSubmitted,
+      needsOnboarding,
+      onboardingUrl,
       requirements: account.requirements,
-      message: isActive
-        ? "Your Stripe account is active and ready to receive payments"
-        : "Please complete your Stripe account setup to receive payments",
+      message,
     };
   } catch (error: any) {
     // If account doesn't exist or access revoked, clear the stored account ID
@@ -173,6 +255,7 @@ const checkAccountStatus = async (userId: string) => {
         connected: false,
         status: "none",
         canReceivePayments: false,
+        needsOnboarding: true,
         message:
           "No Stripe account connected. Please connect your account to receive payments.",
       };
