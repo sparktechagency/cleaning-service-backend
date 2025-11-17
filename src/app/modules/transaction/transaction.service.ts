@@ -5,6 +5,11 @@ import {
   PaymentMethod,
 } from "../../models/Transaction.model";
 import { User } from "../../models/User.model";
+import {
+  findMatchingUsers,
+  sortByRelevance,
+  paginateResults,
+} from "../../../helpers/searchHelper";
 
 // Create a transaction record for subscription purchase
 const recordSubscriptionPurchase = async (data: {
@@ -639,13 +644,8 @@ const searchForBookingPaymentHistory = async (
   const trimmedSearch = searchTerm.trim();
   const regex = new RegExp(trimmedSearch, "i");
 
-  // Find matching users (owners and providers)
-  const matchingUsers = await User.find({
-    isDeleted: { $ne: true },
-    $or: [{ userName: regex }, { email: regex }, { phoneNumber: regex }],
-  }).select("_id");
-
-  const userIds = matchingUsers.map((user) => user._id);
+  // Use centralized search helper
+  const userIds = await findMatchingUsers(trimmedSearch);
 
   const searchQuery: any = {
     $or: [
@@ -691,89 +691,26 @@ const searchForBookingPaymentHistory = async (
     status: transaction.status,
   }));
 
-  // Sort by relevance
-  const searchLower = trimmedSearch.toLowerCase();
-  const sortedTransactions = formattedTransactions.sort((a: any, b: any) => {
-    const aOwnerLower = (a.ownerName || "").toLowerCase();
-    const aProviderLower = (a.providerName || "").toLowerCase();
-    const aOwnerEmailLower = (a.ownerEmail || "").toLowerCase();
-    const aProviderEmailLower = (a.providerEmail || "").toLowerCase();
-    const aTransactionIdLower = (a.transactionId || "").toLowerCase();
+  // Sort by relevance using centralized helper
+  const sortedTransactions = formattedTransactions.sort(
+    sortByRelevance(trimmedSearch, [
+      "ownerName",
+      "providerName",
+      "ownerEmail",
+      "providerEmail",
+      "transactionId",
+    ])
+  );
 
-    const bOwnerLower = (b.ownerName || "").toLowerCase();
-    const bProviderLower = (b.providerName || "").toLowerCase();
-    const bOwnerEmailLower = (b.ownerEmail || "").toLowerCase();
-    const bProviderEmailLower = (b.providerEmail || "").toLowerCase();
-    const bTransactionIdLower = (b.transactionId || "").toLowerCase();
-
-    let scoreA = 0;
-    if (aOwnerLower === searchLower || aOwnerEmailLower === searchLower)
-      scoreA = 1000;
-    else if (
-      aProviderLower === searchLower ||
-      aProviderEmailLower === searchLower
-    )
-      scoreA = 900;
-    else if (aTransactionIdLower === searchLower) scoreA = 800;
-    else if (aOwnerLower.startsWith(searchLower)) scoreA = 700;
-    else if (aProviderLower.startsWith(searchLower)) scoreA = 600;
-    else if (aTransactionIdLower.startsWith(searchLower)) scoreA = 500;
-    else if (
-      aOwnerLower.includes(searchLower) ||
-      aOwnerEmailLower.includes(searchLower)
-    )
-      scoreA = 400;
-    else if (
-      aProviderLower.includes(searchLower) ||
-      aProviderEmailLower.includes(searchLower)
-    )
-      scoreA = 300;
-    else if (aTransactionIdLower.includes(searchLower)) scoreA = 200;
-
-    let scoreB = 0;
-    if (bOwnerLower === searchLower || bOwnerEmailLower === searchLower)
-      scoreB = 1000;
-    else if (
-      bProviderLower === searchLower ||
-      bProviderEmailLower === searchLower
-    )
-      scoreB = 900;
-    else if (bTransactionIdLower === searchLower) scoreB = 800;
-    else if (bOwnerLower.startsWith(searchLower)) scoreB = 700;
-    else if (bProviderLower.startsWith(searchLower)) scoreB = 600;
-    else if (bTransactionIdLower.startsWith(searchLower)) scoreB = 500;
-    else if (
-      bOwnerLower.includes(searchLower) ||
-      bOwnerEmailLower.includes(searchLower)
-    )
-      scoreB = 400;
-    else if (
-      bProviderLower.includes(searchLower) ||
-      bProviderEmailLower.includes(searchLower)
-    )
-      scoreB = 300;
-    else if (bTransactionIdLower.includes(searchLower)) scoreB = 200;
-
-    if (scoreB !== scoreA) {
-      return scoreB - scoreA;
-    }
-
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
-
-  const total = sortedTransactions.length;
-  const paginatedTransactions = sortedTransactions.slice(
-    (page - 1) * limit,
-    page * limit
+  // Apply pagination using centralized helper
+  const { results: paginatedTransactions, pagination } = paginateResults(
+    sortedTransactions,
+    page,
+    limit
   );
 
   return {
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination,
     transactions: paginatedTransactions,
   };
 };

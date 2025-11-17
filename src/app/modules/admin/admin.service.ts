@@ -12,6 +12,13 @@ import { WebsiteContent } from "./websiteContent.model";
 import * as notificationService from "../notification/notification.service";
 import { NotificationType } from "../../models";
 import { Referral } from "../../models/Referral.model";
+import {
+  findMatchingUsers,
+  findMatchingCategories,
+  findMatchingServices,
+  sortByRelevance,
+  paginateResults,
+} from "../../../helpers/searchHelper";
 
 const createCategory = async (
   categoryData: Partial<ICategory>
@@ -439,67 +446,23 @@ const searchUsers = async (
     "_id profilePicture userName role createdAt phoneNumber email address"
   );
 
-  // Sort results by match priority
-  const sortedUsers = users.sort((a, b) => {
-    const searchLower = trimmedSearch.toLowerCase();
+  // Convert to plain objects for sorting
+  const plainUsers = users.map((user) => user.toObject());
 
-    // Calculate match scores for user A
-    const aUserNameLower = (a.userName || "").toLowerCase();
-    const aEmailLower = (a.email || "").toLowerCase();
-    const aPhoneLower = (a.phoneNumber || "").toLowerCase();
+  // Sort by relevance using centralized helper
+  const sortedUsers = plainUsers.sort(
+    sortByRelevance(trimmedSearch, ["userName", "email", "phoneNumber"])
+  );
 
-    let scoreA = 0;
-    // Exact match (highest priority)
-    if (aUserNameLower === searchLower) scoreA = 1000;
-    else if (aEmailLower === searchLower) scoreA = 900;
-    else if (aPhoneLower === searchLower) scoreA = 800;
-    // Starts with match (second priority)
-    else if (aUserNameLower.startsWith(searchLower)) scoreA = 700;
-    else if (aEmailLower.startsWith(searchLower)) scoreA = 600;
-    else if (aPhoneLower.startsWith(searchLower)) scoreA = 500;
-    // Contains match (lowest priority)
-    else if (aUserNameLower.includes(searchLower)) scoreA = 400;
-    else if (aEmailLower.includes(searchLower)) scoreA = 300;
-    else if (aPhoneLower.includes(searchLower)) scoreA = 200;
-
-    // Calculate match scores for user B
-    const bUserNameLower = (b.userName || "").toLowerCase();
-    const bEmailLower = (b.email || "").toLowerCase();
-    const bPhoneLower = (b.phoneNumber || "").toLowerCase();
-
-    let scoreB = 0;
-    // Exact match (highest priority)
-    if (bUserNameLower === searchLower) scoreB = 1000;
-    else if (bEmailLower === searchLower) scoreB = 900;
-    else if (bPhoneLower === searchLower) scoreB = 800;
-    // Starts with match (second priority)
-    else if (bUserNameLower.startsWith(searchLower)) scoreB = 700;
-    else if (bEmailLower.startsWith(searchLower)) scoreB = 600;
-    else if (bPhoneLower.startsWith(searchLower)) scoreB = 500;
-    // Contains match (lowest priority)
-    else if (bUserNameLower.includes(searchLower)) scoreB = 400;
-    else if (bEmailLower.includes(searchLower)) scoreB = 300;
-    else if (bPhoneLower.includes(searchLower)) scoreB = 200;
-
-    // Sort by score (descending - highest score first)
-    if (scoreB !== scoreA) {
-      return scoreB - scoreA;
-    }
-
-    // If scores are equal, sort alphabetically by userName
-    return aUserNameLower.localeCompare(bUserNameLower);
-  });
-
-  const total = sortedUsers.length;
-  const paginatedUsers = sortedUsers.slice((page - 1) * limit, page * limit);
+  // Apply pagination using centralized helper
+  const { results: paginatedUsers, pagination } = paginateResults(
+    sortedUsers,
+    page,
+    limit
+  );
 
   return {
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination,
     users: paginatedUsers,
   };
 };
@@ -573,20 +536,11 @@ const searchBookingRequestOverview = async (
   }
 
   const trimmedSearch = searchTerm.trim();
-  const regex = new RegExp(trimmedSearch, "i");
 
-  const matchingUsers = await User.find({
-    isDeleted: { $ne: true },
-    $or: [{ userName: regex }, { email: regex }, { phoneNumber: regex }],
-  }).select("_id");
-
-  const userIds = matchingUsers.map((user) => user._id);
-
-  const matchingCategories = await Category.find({
-    name: regex,
-  }).select("_id");
-
-  const categoryIds = matchingCategories.map((cat) => cat._id);
+  // Use centralized search helpers
+  const userIds = await findMatchingUsers(trimmedSearch);
+  const categoryIds = await findMatchingCategories(trimmedSearch);
+  const serviceIds = await findMatchingServices(categoryIds);
 
   const searchQuery: any = {
     $or: [],
@@ -599,16 +553,8 @@ const searchBookingRequestOverview = async (
     );
   }
 
-  if (categoryIds.length > 0) {
-    const matchingServices = await Service.find({
-      categoryId: { $in: categoryIds },
-    }).select("_id");
-
-    const serviceIds = matchingServices.map((service: any) => service._id);
-
-    if (serviceIds.length > 0) {
-      searchQuery.$or.push({ serviceId: { $in: serviceIds } });
-    }
+  if (serviceIds.length > 0) {
+    searchQuery.$or.push({ serviceId: { $in: serviceIds } });
   }
 
   if (searchQuery.$or.length === 0) {
@@ -655,60 +601,20 @@ const searchBookingRequestOverview = async (
     status: booking.status,
   }));
 
-  const searchLower = trimmedSearch.toLowerCase();
-  const sortedBookings = formattedBookings.sort((a: any, b: any) => {
-    const aOwnerLower = (a.ownerName || "").toLowerCase();
-    const aProviderLower = (a.providerName || "").toLowerCase();
-    const aCategoryLower = (a.category || "").toLowerCase();
+  // Sort by relevance using centralized helper
+  const sortedBookings = formattedBookings.sort(
+    sortByRelevance(trimmedSearch, ["ownerName", "providerName", "category"])
+  );
 
-    const bOwnerLower = (b.ownerName || "").toLowerCase();
-    const bProviderLower = (b.providerName || "").toLowerCase();
-    const bCategoryLower = (b.category || "").toLowerCase();
-
-    let scoreA = 0;
-    if (aOwnerLower === searchLower) scoreA = 1000;
-    else if (aProviderLower === searchLower) scoreA = 900;
-    else if (aCategoryLower === searchLower) scoreA = 800;
-    else if (aOwnerLower.startsWith(searchLower)) scoreA = 700;
-    else if (aProviderLower.startsWith(searchLower)) scoreA = 600;
-    else if (aCategoryLower.startsWith(searchLower)) scoreA = 500;
-    else if (aOwnerLower.includes(searchLower)) scoreA = 400;
-    else if (aProviderLower.includes(searchLower)) scoreA = 300;
-    else if (aCategoryLower.includes(searchLower)) scoreA = 200;
-
-    let scoreB = 0;
-    if (bOwnerLower === searchLower) scoreB = 1000;
-    else if (bProviderLower === searchLower) scoreB = 900;
-    else if (bCategoryLower === searchLower) scoreB = 800;
-    else if (bOwnerLower.startsWith(searchLower)) scoreB = 700;
-    else if (bProviderLower.startsWith(searchLower)) scoreB = 600;
-    else if (bCategoryLower.startsWith(searchLower)) scoreB = 500;
-    else if (bOwnerLower.includes(searchLower)) scoreB = 400;
-    else if (bProviderLower.includes(searchLower)) scoreB = 300;
-    else if (bCategoryLower.includes(searchLower)) scoreB = 200;
-
-    if (scoreB !== scoreA) {
-      return scoreB - scoreA;
-    }
-
-    return (
-      new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime()
-    );
-  });
-
-  const total = sortedBookings.length;
-  const paginatedBookings = sortedBookings.slice(
-    (page - 1) * limit,
-    page * limit
+  // Apply pagination using centralized helper
+  const { results: paginatedBookings, pagination } = paginateResults(
+    sortedBookings,
+    page,
+    limit
   );
 
   return {
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination,
     bookings: paginatedBookings,
   };
 };
@@ -1081,55 +987,20 @@ const searchForProfileStatus = async (
     })
   );
 
-  const searchLower = trimmedSearch.toLowerCase();
-  const sortedUsers = usersWithStats.sort((a: any, b: any) => {
-    const aUserNameLower = (a.userName || "").toLowerCase();
-    const aEmailLower = (a.email || "").toLowerCase();
-    const aPhoneLower = (a.phoneNumber || "").toLowerCase();
+  // Sort by relevance using centralized helper
+  const sortedUsers = usersWithStats.sort(
+    sortByRelevance(trimmedSearch, ["userName", "email", "phoneNumber"])
+  );
 
-    const bUserNameLower = (b.userName || "").toLowerCase();
-    const bEmailLower = (b.email || "").toLowerCase();
-    const bPhoneLower = (b.phoneNumber || "").toLowerCase();
-
-    let scoreA = 0;
-    if (aUserNameLower === searchLower) scoreA = 1000;
-    else if (aEmailLower === searchLower) scoreA = 900;
-    else if (aPhoneLower === searchLower) scoreA = 800;
-    else if (aUserNameLower.startsWith(searchLower)) scoreA = 700;
-    else if (aEmailLower.startsWith(searchLower)) scoreA = 600;
-    else if (aPhoneLower.startsWith(searchLower)) scoreA = 500;
-    else if (aUserNameLower.includes(searchLower)) scoreA = 400;
-    else if (aEmailLower.includes(searchLower)) scoreA = 300;
-    else if (aPhoneLower.includes(searchLower)) scoreA = 200;
-
-    let scoreB = 0;
-    if (bUserNameLower === searchLower) scoreB = 1000;
-    else if (bEmailLower === searchLower) scoreB = 900;
-    else if (bPhoneLower === searchLower) scoreB = 800;
-    else if (bUserNameLower.startsWith(searchLower)) scoreB = 700;
-    else if (bEmailLower.startsWith(searchLower)) scoreB = 600;
-    else if (bPhoneLower.startsWith(searchLower)) scoreB = 500;
-    else if (bUserNameLower.includes(searchLower)) scoreB = 400;
-    else if (bEmailLower.includes(searchLower)) scoreB = 300;
-    else if (bPhoneLower.includes(searchLower)) scoreB = 200;
-
-    if (scoreB !== scoreA) {
-      return scoreB - scoreA;
-    }
-
-    return aUserNameLower.localeCompare(bUserNameLower);
-  });
-
-  const total = sortedUsers.length;
-  const paginatedUsers = sortedUsers.slice((page - 1) * limit, page * limit);
+  // Apply pagination using centralized helper
+  const { results: paginatedUsers, pagination } = paginateResults(
+    sortedUsers,
+    page,
+    limit
+  );
 
   return {
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination,
     users: paginatedUsers,
   };
 };
@@ -1207,20 +1078,11 @@ const searchBookingDetailsForSuspension = async (
   }
 
   const trimmedSearch = searchTerm.trim();
-  const regex = new RegExp(trimmedSearch, "i");
 
-  const matchingUsers = await User.find({
-    isDeleted: { $ne: true },
-    $or: [{ userName: regex }, { email: regex }, { phoneNumber: regex }],
-  }).select("_id");
-
-  const userIds = matchingUsers.map((user) => user._id);
-
-  const matchingCategories = await Category.find({
-    name: regex,
-  }).select("_id");
-
-  const categoryIds = matchingCategories.map((cat) => cat._id);
+  // Use centralized search helpers
+  const userIds = await findMatchingUsers(trimmedSearch);
+  const categoryIds = await findMatchingCategories(trimmedSearch);
+  const serviceIds = await findMatchingServices(categoryIds);
 
   const searchQuery: any = {
     status: "COMPLETED",
@@ -1234,16 +1096,8 @@ const searchBookingDetailsForSuspension = async (
     );
   }
 
-  if (categoryIds.length > 0) {
-    const matchingServices = await Service.find({
-      categoryId: { $in: categoryIds },
-    }).select("_id");
-
-    const serviceIds = matchingServices.map((service: any) => service._id);
-
-    if (serviceIds.length > 0) {
-      searchQuery.$or.push({ serviceId: { $in: serviceIds } });
-    }
+  if (serviceIds.length > 0) {
+    searchQuery.$or.push({ serviceId: { $in: serviceIds } });
   }
 
   if (searchQuery.$or.length === 0) {
@@ -1291,60 +1145,24 @@ const searchBookingDetailsForSuspension = async (
     providerAccountStatus: booking.providerId?.status,
   }));
 
-  const searchLower = trimmedSearch.toLowerCase();
-  const sortedBookings = formattedBookings.sort((a: any, b: any) => {
-    const aOwnerLower = (a.ownerUserName || "").toLowerCase();
-    const aProviderLower = (a.providerUserName || "").toLowerCase();
-    const aServiceLower = (a.bookingService || "").toLowerCase();
+  // Sort by relevance using centralized helper
+  const sortedBookings = formattedBookings.sort(
+    sortByRelevance(trimmedSearch, [
+      "ownerUserName",
+      "providerUserName",
+      "bookingService",
+    ])
+  );
 
-    const bOwnerLower = (b.ownerUserName || "").toLowerCase();
-    const bProviderLower = (b.providerUserName || "").toLowerCase();
-    const bServiceLower = (b.bookingService || "").toLowerCase();
-
-    let scoreA = 0;
-    if (aOwnerLower === searchLower) scoreA = 1000;
-    else if (aProviderLower === searchLower) scoreA = 900;
-    else if (aServiceLower === searchLower) scoreA = 800;
-    else if (aOwnerLower.startsWith(searchLower)) scoreA = 700;
-    else if (aProviderLower.startsWith(searchLower)) scoreA = 600;
-    else if (aServiceLower.startsWith(searchLower)) scoreA = 500;
-    else if (aOwnerLower.includes(searchLower)) scoreA = 400;
-    else if (aProviderLower.includes(searchLower)) scoreA = 300;
-    else if (aServiceLower.includes(searchLower)) scoreA = 200;
-
-    let scoreB = 0;
-    if (bOwnerLower === searchLower) scoreB = 1000;
-    else if (bProviderLower === searchLower) scoreB = 900;
-    else if (bServiceLower === searchLower) scoreB = 800;
-    else if (bOwnerLower.startsWith(searchLower)) scoreB = 700;
-    else if (bProviderLower.startsWith(searchLower)) scoreB = 600;
-    else if (bServiceLower.startsWith(searchLower)) scoreB = 500;
-    else if (bOwnerLower.includes(searchLower)) scoreB = 400;
-    else if (bProviderLower.includes(searchLower)) scoreB = 300;
-    else if (bServiceLower.includes(searchLower)) scoreB = 200;
-
-    if (scoreB !== scoreA) {
-      return scoreB - scoreA;
-    }
-
-    return (
-      new Date(b.bookingDate).getTime() - new Date(a.bookingDate).getTime()
-    );
-  });
-
-  const total = sortedBookings.length;
-  const paginatedBookings = sortedBookings.slice(
-    (page - 1) * limit,
-    page * limit
+  // Apply pagination using centralized helper
+  const { results: paginatedBookings, pagination } = paginateResults(
+    sortedBookings,
+    page,
+    limit
   );
 
   return {
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination,
     bookings: paginatedBookings,
   };
 };
@@ -1920,6 +1738,102 @@ const referralProgram = async (
   };
 };
 
+const searchForReferralProgram = async (
+  searchTerm: string,
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  if (!searchTerm || searchTerm.trim() === "") {
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      referrals: [],
+    };
+  }
+
+  const trimmedSearch = searchTerm.trim();
+  const regex = new RegExp(trimmedSearch, "i");
+
+  // Use centralized search helper
+  const userIds = await findMatchingUsers(trimmedSearch);
+
+  const searchQuery: any = {
+    $or: [],
+  };
+
+  if (userIds.length > 0) {
+    searchQuery.$or.push(
+      { referrerId: { $in: userIds } },
+      { refereeId: { $in: userIds } }
+    );
+  }
+
+  // Also search by cached names and emails
+  searchQuery.$or.push(
+    { referrerName: regex },
+    { referrerEmail: regex },
+    { refereeName: regex },
+    { refereeEmail: regex }
+  );
+
+  if (searchQuery.$or.length === 0) {
+    return {
+      pagination: {
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      },
+      referrals: [],
+    };
+  }
+
+  // Find referrals matching the search criteria
+  const referrals = await Referral.find(searchQuery)
+    .populate("referrerId", "userName email role")
+    .populate("refereeId", "userName email role")
+    .sort({ createdAt: -1 })
+    .lean();
+
+  // Format the results
+  const formattedReferrals = referrals.map((referral: any) => ({
+    Name: referral.refereeId?.userName || referral.refereeName,
+    ReferredName: referral.referrerId?.userName || referral.referrerName,
+    createdAt: referral.createdAt,
+    Email: referral.refereeId?.email || referral.refereeEmail,
+    ReferredEmail: referral.referrerId?.email || referral.referrerEmail,
+    referrerRole: referral.referrerId?.role || referral.referrerRole,
+    creditsEarned: referral.creditsEarned,
+  }));
+
+  // Sort by relevance using centralized helper
+  const sortedReferrals = formattedReferrals.sort(
+    sortByRelevance(trimmedSearch, [
+      "Name",
+      "ReferredName",
+      "Email",
+      "ReferredEmail",
+    ])
+  );
+
+  // Apply pagination using centralized helper
+  const { results: paginatedReferrals, pagination } = paginateResults(
+    sortedReferrals,
+    page,
+    limit
+  );
+
+  return {
+    pagination,
+    referrals: paginatedReferrals,
+  };
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -1956,4 +1870,5 @@ export const adminService = {
   updateAfialiationProgram,
   getAfiliationProgram,
   referralProgram,
+  searchForReferralProgram,
 };

@@ -1,6 +1,8 @@
 import express from "express";
 import auth from "../../middlewares/auth";
 import * as transactionController from "./transaction.controller";
+import validateRequest from "../../middlewares/validateRequest";
+import { transactionValidation } from "./transaction.validation";
 
 const router = express.Router();
 
@@ -57,6 +59,7 @@ router.get(
 router.get(
   "/booking-payments/search",
   auth("ADMIN"),
+  validateRequest(transactionValidation.searchBookingPaymentHistorySchema),
   transactionController.searchBookingPaymentHistory
 );
 

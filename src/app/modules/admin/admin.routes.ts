@@ -177,6 +177,36 @@ router.patch(
   adminController.changeUserStatus
 );
 
+// Search routes - MUST come before parameterized routes
+router.get(
+  "/referral-program/search",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.searchReferralProgramSchema),
+  adminController.searchForReferralProgram
+);
+
+router.get(
+  "/profile-status/search",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.searchUsersSchema),
+  adminController.searchForProfileStatus
+);
+
+router.get(
+  "/search",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.searchUsersSchema),
+  adminController.searchUsers
+);
+
+router.get(
+  "/bookings/search",
+  auth(UserRole.ADMIN),
+  validateRequest(adminValidation.searchBookingRequestsSchema),
+  adminController.searchBookingRequests
+);
+
+// Parameterized routes - MUST come after search routes
 router.get(
   "/bookings/:bookingId",
   auth(UserRole.ADMIN),
@@ -185,28 +215,7 @@ router.get(
 );
 
 router.get(
-  "/profile-status/search/:searchTerm",
-  auth(UserRole.ADMIN),
-  validateRequest(adminValidation.searchUsersSchema),
-  adminController.searchForProfileStatus
-);
-
-router.get(
-  "/search/:searchTerm",
-  auth(UserRole.ADMIN),
-  validateRequest(adminValidation.searchUsersSchema),
-  adminController.searchUsers
-);
-
-router.get(
-  "/bookings/search/:searchTerm",
-  auth(UserRole.ADMIN),
-  validateRequest(adminValidation.searchBookingRequestsSchema),
-  adminController.searchBookingRequests
-);
-
-router.get(
-  "/account-suspension/search/:searchTerm",
+  "/account-suspension/search",
   auth(UserRole.ADMIN),
   validateRequest(adminValidation.searchBookingRequestsSchema),
   adminController.searchBookingDetailsForSuspension

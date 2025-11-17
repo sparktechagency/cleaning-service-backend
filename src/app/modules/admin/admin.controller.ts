@@ -162,7 +162,14 @@ const getAllProviders = catchAsync(async (req: Request, res: Response) => {
 });
 
 const searchUsers = catchAsync(async (req: Request, res: Response) => {
-  const { searchTerm } = req.params;
+  const { searchTerm } = req.query;
+
+  if (!searchTerm || typeof searchTerm !== "string") {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Search term is required and must be a string"
+    );
+  }
 
   const result = await adminService.searchUsers(searchTerm, req.query);
 
@@ -191,7 +198,14 @@ const getBookingRequestOverview = catchAsync(
 
 const searchBookingRequests = catchAsync(
   async (req: Request, res: Response) => {
-    const { searchTerm } = req.params;
+    const { searchTerm } = req.query;
+
+    if (!searchTerm || typeof searchTerm !== "string") {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Search term is required and must be a string"
+      );
+    }
 
     const result = await adminService.searchBookingRequestOverview(
       searchTerm,
@@ -280,7 +294,15 @@ const getBookingDetailsForSuspension = catchAsync(
 
 const searchBookingDetailsForSuspension = catchAsync(
   async (req: Request, res: Response) => {
-    const { searchTerm } = req.params;
+    const { searchTerm } = req.query;
+
+    if (!searchTerm || typeof searchTerm !== "string") {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Search term is required and must be a string"
+      );
+    }
+
     const result = await adminService.searchBookingDetailsForSuspension(
       searchTerm,
       req.query
@@ -298,7 +320,15 @@ const searchBookingDetailsForSuspension = catchAsync(
 
 const searchForProfileStatus = catchAsync(
   async (req: Request, res: Response) => {
-    const { searchTerm } = req.params;
+    const { searchTerm } = req.query;
+
+    if (!searchTerm || typeof searchTerm !== "string") {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Search term is required and must be a string"
+      );
+    }
+
     const result = await adminService.searchForProfileStatus(
       searchTerm,
       req.query
@@ -536,6 +566,32 @@ const getReferralProgram = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const searchForReferralProgram = catchAsync(
+  async (req: Request, res: Response) => {
+    const { searchTerm, page = 1, limit = 20 } = req.query;
+
+    if (!searchTerm || typeof searchTerm !== "string") {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Search term is required and must be a string"
+      );
+    }
+
+    const result = await adminService.searchForReferralProgram(searchTerm, {
+      page: Number(page),
+      limit: Number(limit),
+    });
+
+    sendResponse(res, {
+      statusCode: 200,
+      success: true,
+      message: "Search referral program data retrieved successfully",
+      meta: result.pagination,
+      data: result.referrals,
+    });
+  }
+);
+
 export const adminController = {
   createCategory,
   getCategories,
@@ -572,4 +628,5 @@ export const adminController = {
   updateAfialiationProgram,
   getAfiliationProgram,
   getReferralProgram,
+  searchForReferralProgram,
 };
