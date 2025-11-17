@@ -101,7 +101,7 @@ const deleteCategory = catchAsync(async (req: Request, res: Response) => {
 
 const getTotalCount = catchAsync(async (req: Request, res: Response) => {
   const year = req.query.year ? parseInt(req.query.year as string) : undefined;
-  
+
   const result = await adminService.totalCount(year);
 
   sendResponse(res, {
@@ -519,6 +519,23 @@ const getAfiliationProgram = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getReferralProgram = catchAsync(async (req: Request, res: Response) => {
+  const { page = 1, limit = 20 } = req.query;
+
+  const result = await adminService.referralProgram({
+    page: Number(page),
+    limit: Number(limit),
+  });
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: "Referral program data retrieved successfully",
+    meta: result.pagination,
+    data: result.referrals,
+  });
+});
+
 export const adminController = {
   createCategory,
   getCategories,
@@ -554,4 +571,5 @@ export const adminController = {
   getTermsAndConditions,
   updateAfialiationProgram,
   getAfiliationProgram,
+  getReferralProgram,
 };

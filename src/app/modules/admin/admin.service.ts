@@ -11,6 +11,7 @@ import { KnowledgeHub } from "./knowledgeHub.model";
 import { WebsiteContent } from "./websiteContent.model";
 import * as notificationService from "../notification/notification.service";
 import { NotificationType } from "../../models";
+import { Referral } from "../../models/Referral.model";
 
 const createCategory = async (
   categoryData: Partial<ICategory>
@@ -1883,6 +1884,42 @@ const getAfiliationProgram = async () => {
   };
 };
 
+const referralProgram = async (
+  options: { page?: number; limit?: number } = {}
+) => {
+  const { page = 1, limit = 20 } = options;
+
+  const total = await Referral.countDocuments();
+
+  const referrals = await Referral.find()
+    .populate("referrerId", "userName email role")
+    .populate("refereeId", "userName email role")
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean();
+
+  const formattedReferrals = referrals.map((referral: any) => ({
+    Name: referral.refereeId?.userName || referral.refereeName,
+    ReferredName: referral.referrerId?.userName || referral.referrerName,
+    createdAt: referral.createdAt,
+    Email: referral.refereeId?.email || referral.refereeEmail,
+    ReferredEmail: referral.referrerId?.email || referral.referrerEmail,
+    referrerRole: referral.referrerId?.role || referral.referrerRole,
+    creditsEarned: referral.creditsEarned,
+  }));
+
+  return {
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+    referrals: formattedReferrals,
+  };
+};
+
 export const adminService = {
   createCategory,
   getCategories,
@@ -1918,4 +1955,5 @@ export const adminService = {
   getTermsAndConditions,
   updateAfialiationProgram,
   getAfiliationProgram,
+  referralProgram,
 };

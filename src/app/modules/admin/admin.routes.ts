@@ -59,6 +59,12 @@ router.get(
   adminController.getBookingDetailsForSuspension
 );
 
+router.get(
+  "/referral-program",
+  auth(UserRole.ADMIN),
+  adminController.getReferralProgram
+);
+
 router.post(
   "/knowledge-hub",
   auth(UserRole.ADMIN),
@@ -66,10 +72,7 @@ router.post(
   adminController.createKnowledgeHubArticle
 );
 
-router.get(
-  "/knowledge-hub",
-  adminController.getKnowledgeHubArticles
-);
+router.get("/knowledge-hub", adminController.getKnowledgeHubArticles);
 
 router.put(
   "/edit-profile",
