@@ -82,7 +82,18 @@ const ServiceSchema = new Schema<IService>(
     languages: [
       {
         type: String,
-        enum: ["English"],
+        enum: [
+          "English",
+          "Spanish",
+          "French",
+          "German",
+          "Italian",
+          "Portuguese",
+          "Chinese",
+          "Japanese",
+          "Arabic",
+          "Hindi",
+        ],
       },
     ],
     coverImages: [

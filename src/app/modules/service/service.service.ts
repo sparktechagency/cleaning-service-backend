@@ -8,6 +8,11 @@ import { fileUploader } from "../../../helpers/fileUploader";
 import { Booking } from "../booking/booking.model";
 import haversineDistance from "../../../utils/HeversineDistance";
 import { messageService } from "../message/message.service";
+import {
+  Transaction,
+  TransactionType,
+  TransactionStatus,
+} from "../../models/Transaction.model";
 
 const getAllCategories = async (options: { search?: string }) => {
   const { search } = options;
@@ -134,6 +139,23 @@ const createService = async (
     }
   });
 
+  // Process languages - handle comma-separated string or array
+  let processedLanguages: string[] | undefined = payload.languages;
+  if (processedLanguages) {
+    if (typeof processedLanguages === "string") {
+      // Split by comma and trim whitespace
+      processedLanguages = (processedLanguages as string)
+        .split(",")
+        .map((lang: string) => lang.trim())
+        .filter((lang: string) => lang !== "");
+    } else if (Array.isArray(processedLanguages)) {
+      // Clean up array elements
+      processedLanguages = processedLanguages
+        .map((lang: any) => (typeof lang === "string" ? lang.trim() : lang))
+        .filter((lang: string) => lang !== "");
+    }
+  }
+
   let coverImageUrls: string[] = [];
 
   // Handle file uploads for cover images (support both singular and plural field names)
@@ -175,6 +197,7 @@ const createService = async (
     providerId: user._id,
     coverImages: coverImageUrls,
     workSchedule: processedWorkSchedule,
+    languages: processedLanguages,
   };
 
   const newService = new Service(serviceData);
@@ -361,6 +384,21 @@ const updateService = async (
     });
   }
 
+  // Process languages - handle comma-separated string or array
+  let processedLanguages: string[] | undefined = payload.languages;
+  if (processedLanguages) {
+    if (typeof processedLanguages === "string") {
+      processedLanguages = (processedLanguages as string)
+        .split(",")
+        .map((lang: string) => lang.trim())
+        .filter((lang: string) => lang !== "");
+    } else if (Array.isArray(processedLanguages)) {
+      processedLanguages = processedLanguages
+        .map((lang: any) => (typeof lang === "string" ? lang.trim() : lang))
+        .filter((lang: string) => lang !== "");
+    }
+  }
+
   let coverImageUrls: string[] = service.coverImages || [];
 
   // Handle new cover image uploads
@@ -387,6 +425,7 @@ const updateService = async (
       ...payload,
       coverImages: coverImageUrls,
       workSchedule: processedWorkSchedule,
+      languages: processedLanguages,
     },
     { new: true, runValidators: true }
   )
@@ -934,6 +973,42 @@ const getProviderHomepageContentData = async (providerId: string) => {
     providerId
   );
 
+  // Calculate total earnings for current month
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+    999
+  );
+
+  const monthlyEarnings = await Transaction.aggregate([
+    {
+      $match: {
+        receiverId: new mongoose.Types.ObjectId(providerId),
+        transactionType: TransactionType.BOOKING_PAYMENT,
+        status: TransactionStatus.COMPLETED,
+        completedAt: {
+          $gte: startOfMonth,
+          $lte: endOfMonth,
+        },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalEarnings: { $sum: "$amount" },
+      },
+    },
+  ]);
+
+  const totalMonthlyEarnings =
+    monthlyEarnings.length > 0 ? monthlyEarnings[0].totalEarnings : 0;
+
   // Prepare response
   const homepageData = {
     location: {
@@ -943,6 +1018,7 @@ const getProviderHomepageContentData = async (providerId: string) => {
     pendingBookings: pendingBookingsCount,
     unreadMessages: unreadMessageData.unreadCount,
     currentPlan: provider.plan || "FREE",
+    monthlyEarnings: parseFloat(totalMonthlyEarnings.toFixed(2)),
   };
 
   return homepageData;

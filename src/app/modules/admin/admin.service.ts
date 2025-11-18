@@ -576,11 +576,11 @@ const bookingRequestOverview = async (
   const bookings = await Booking.find()
     .populate({
       path: "customerId",
-      select: "userName",
+      select: "userName profilePicture",
     })
     .populate({
       path: "providerId",
-      select: "userName",
+      select: "userName profilePicture",
     })
     .populate({
       path: "serviceId",
@@ -597,7 +597,9 @@ const bookingRequestOverview = async (
 
   const formattedBookings = bookings.map((booking: any) => ({
     ownerName: booking.customerId?.userName,
+    ownerProfilePicture: booking.customerId?.profilePicture,
     providerName: booking.providerId?.userName,
+    providerProfilePicture: booking.providerId?.profilePicture,
     bookingDate: booking.scheduledAt,
     category: booking.serviceId?.categoryId?.name,
     amount: booking.totalAmount,

@@ -105,7 +105,20 @@ const createServiceSchema = z.object({
         return [];
       },
       z
-        .array(z.enum(["English"]))
+        .array(
+          z.enum([
+            "English",
+            "Spanish",
+            "French",
+            "German",
+            "Italian",
+            "Portuguese",
+            "Chinese",
+            "Japanese",
+            "Arabic",
+            "Hindi",
+          ])
+        )
         .optional()
         .default([])
     ),
@@ -139,7 +152,7 @@ const updateServiceSchema = z.object({
           .filter(Boolean);
       }
       return v;
-    }, z.array(z.enum(["English"])).optional()),
+    }, z.array(z.enum(["English", "Spanish", "French", "German", "Italian", "Portuguese", "Chinese", "Japanese", "Arabic", "Hindi"])).optional()),
 
     // Work Schedule Validation for updates
     workSchedule: workScheduleSchema,
