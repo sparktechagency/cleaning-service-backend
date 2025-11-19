@@ -347,8 +347,8 @@ const getBookingPaymentHistory = async (
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate("payerId", "userName email")
-      .populate("receiverId", "userName email")
+      .populate("payerId", "userName email profilePicture")
+      .populate("receiverId", "userName email profilePicture")
       .populate("bookingId", "bookingId serviceType")
       .lean(),
     Transaction.countDocuments(query),
@@ -356,7 +356,9 @@ const getBookingPaymentHistory = async (
 
   const formattedTransactions = transactions.map((transaction: any) => ({
     ownerName: transaction.payerId?.userName || transaction.payerName,
+    ownerProfilePicture: transaction.payerId?.profilePicture || null,
     providerName: transaction.receiverId?.userName || transaction.receiverName,
+    providerProfilePicture: transaction.receiverId?.profilePicture || null,
     createdAt: transaction.createdAt,
     ownerEmail: transaction.payerId?.email,
     providerEmail: transaction.receiverId?.email,
