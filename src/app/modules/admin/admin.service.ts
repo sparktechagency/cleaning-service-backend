@@ -1137,8 +1137,10 @@ const bookingDetailsForSuspension = async (
     .lean();
 
   const formattedBookings = bookings.map((booking: any) => ({
+    ownerId: booking.customerId?._id,
     ownerUserName: booking.customerId?.userName,
     ownerProfilePicture: booking.customerId?.profilePicture,
+    providerId: booking.providerId?._id,
     providerUserName: booking.providerId?.userName,
     providerProfilePicture: booking.providerId?.profilePicture,
     bookingDate: booking.scheduledAt,
@@ -1811,8 +1813,8 @@ const referralProgram = async (
   const total = await Referral.countDocuments();
 
   const referrals = await Referral.find()
-    .populate("referrerId", "userName email role")
-    .populate("refereeId", "userName email role")
+    .populate("referrerId", "userName email role profilePicture")
+    .populate("refereeId", "userName email role profilePicture")
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
@@ -1820,7 +1822,11 @@ const referralProgram = async (
 
   const formattedReferrals = referrals.map((referral: any) => ({
     Name: referral.refereeId?.userName || referral.refereeName,
+    refereeProfilePicture:
+      referral.refereeId?.profilePicture || referral.refereeProfilePicture,
     ReferredName: referral.referrerId?.userName || referral.referrerName,
+    referrerProfilePicture:
+      referral.referrerId?.profilePicture || referral.referrerProfilePicture,
     createdAt: referral.createdAt,
     Email: referral.refereeId?.email || referral.refereeEmail,
     ReferredEmail: referral.referrerId?.email || referral.referrerEmail,

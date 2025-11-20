@@ -494,7 +494,7 @@ const paymentTracking = async (
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate("payerId", "userName email phoneNumber")
+      .populate("payerId", "userName email phoneNumber profilePicture")
       .populate("subscriptionId")
       .lean(),
     Transaction.countDocuments(query),
@@ -503,6 +503,7 @@ const paymentTracking = async (
   // Format response with requested fields
   const formattedTransactions = transactions.map((transaction: any) => ({
     providerName: transaction.payerId?.userName || transaction.payerName,
+    providerProfilePicture: transaction.payerId?.profilePicture,
     createdAt: transaction.createdAt,
     Package: transaction.subscriptionId?.plan || transaction.metadata?.plan,
     providerEmail: transaction.payerId?.email,
