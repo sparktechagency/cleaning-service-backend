@@ -17,6 +17,8 @@ export const corsOptions = {
     "https://cleaning-service-kappa.vercel.app",
     "https://brickk-backend.onrender.com/api",
     "http://172.252.13.3:4173",
+    "https://dashboard.brikky.net",
+    "https://www.dashboard.brikky.net",
   ],
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
