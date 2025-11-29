@@ -35,15 +35,26 @@ const registerUser = async (userData: any) => {
     }
 
     // Check if there's already a pending registration (temp user) with same email or phone
+    // OLD LOGIC (commented for traceability):
+    // const existingTempUser = await TempUser.findOne({
+    //   $or: [{ email: userData.email }, { phoneNumber: userData.phoneNumber }],
+    // });
+    // if (existingTempUser) {
+    //   throw new ApiError(
+    //     httpStatus.BAD_REQUEST,
+    //     "A registration is already in progress with this email or phone number. Please wait 15 minutes or verify your OTP."
+    //   );
+    // }
+
+    // NEW LOGIC: If TempUser exists with same email or phone, delete it and allow fresh registration
+    // This improves UX - user can restart registration anytime without waiting 15 minutes
     const existingTempUser = await TempUser.findOne({
       $or: [{ email: userData.email }, { phoneNumber: userData.phoneNumber }],
     });
 
     if (existingTempUser) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "A registration is already in progress with this email or phone number. Please wait 15 minutes or verify your OTP."
-      );
+      // Delete the old pending registration to allow fresh start
+      await TempUser.findByIdAndDelete(existingTempUser._id);
     }
 
     const emailOtp = generateOTPString();
@@ -167,9 +178,16 @@ const completeRegistration = async (registrationData: any, files: any) => {
     }).session(session);
 
     if (!tempUser) {
+      // OLD ERROR MESSAGE (commented for traceability):
+      // throw new ApiError(
+      //   httpStatus.NOT_FOUND,
+      //   "No pending registration found. Please register and verify your email first."
+      // );
+
+      // NEW USER-FRIENDLY ERROR MESSAGE: Guides user to restart registration
       throw new ApiError(
         httpStatus.NOT_FOUND,
-        "No pending registration found. Please register and verify your email first."
+        "Your previous session has expired. Please start registration from the first step again."
       );
     }
 
