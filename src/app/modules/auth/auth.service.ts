@@ -577,7 +577,10 @@ const forgotPassword = async (payload: { email: string }) => {
     console.error("Password reset SMS error:", smsError);
   }
 
-  return { message: "OTP sent to your phone number via SMS", otp };
+  return {
+    message: "OTP sent to your phone number via SMS",
+    otp: process.env.NODE_ENV === "development" ? otp : undefined, // Only return OTP in development
+  };
 };
 
 const resendOtp = async (email: string, otpType: string = "RESET_PASSWORD") => {
