@@ -60,6 +60,31 @@ const disconnectAccount = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+/**
+ * Handle onboarding completion callback
+ * Called by frontend immediately after user returns from Stripe onboarding
+ * Forces fresh status check with Stripe API to ensure database is synchronized
+ * This prevents the timing issue where service creation fails due to stale status
+ */
+const handleOnboardingComplete = catchAsync(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+
+    // Force immediate status check with Stripe API
+    // This ensures our database is updated before user attempts to create services
+    const result = await stripeConnectService.checkAccountStatus(userId);
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: result.canReceivePayments
+        ? "Stripe account is active and ready"
+        : "Stripe account status updated. Please complete any pending requirements.",
+      data: result,
+    });
+  }
+);
+
 // Handle Stripe Connect webhooks
 const handleWebhook = catchAsync(async (req: Request, res: Response) => {
   const signature = req.headers["stripe-signature"] as string;
@@ -83,5 +108,6 @@ export const stripeConnectController = {
   getAccountStatus,
   getDashboardLink,
   disconnectAccount,
+  handleOnboardingComplete,
   handleWebhook,
 };

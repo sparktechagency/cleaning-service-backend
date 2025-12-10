@@ -396,10 +396,44 @@ const handleConnectWebhook = async (
       if (userId) {
         const isActive = account.charges_enabled && account.payouts_enabled;
 
-        await User.findByIdAndUpdate(userId, {
-          stripeAccountStatus: isActive ? "active" : "pending",
-          stripeOnboardingComplete: isActive,
-        });
+        // Log webhook receipt with timestamp for debugging timing issues
+        console.log(
+          `[Stripe Webhook - account.updated] Received at ${new Date().toISOString()}`,
+          {
+            userId,
+            accountId: account.id,
+            isActive,
+            charges_enabled: account.charges_enabled,
+            payouts_enabled: account.payouts_enabled,
+            details_submitted: account.details_submitted,
+          }
+        );
+
+        // Update database with new status
+        const updateResult = await User.findByIdAndUpdate(
+          userId,
+          {
+            stripeAccountStatus: isActive ? "active" : "pending",
+            stripeOnboardingComplete: isActive,
+          },
+          { new: true } // Return updated document for verification
+        );
+
+        // Verify update succeeded
+        if (updateResult) {
+          console.log(
+            `[Stripe Webhook - account.updated] Database updated successfully`,
+            {
+              userId,
+              newStatus: updateResult.stripeAccountStatus,
+              onboardingComplete: updateResult.stripeOnboardingComplete,
+            }
+          );
+        } else {
+          console.error(
+            `[Stripe Webhook - account.updated] Failed to update user ${userId} - user not found`
+          );
+        }
 
         // Notify provider when account becomes active
         if (isActive) {
@@ -414,6 +448,10 @@ const handleConnectWebhook = async (
             },
           });
         }
+      } else {
+        console.warn(
+          `[Stripe Webhook - account.updated] No userId in metadata for account ${account.id}`
+        );
       }
       break;
     }

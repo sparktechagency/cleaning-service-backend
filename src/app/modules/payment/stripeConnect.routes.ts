@@ -29,6 +29,12 @@ router.delete(
   stripeConnectController.disconnectAccount
 );
 
+router.post(
+  "/complete-callback",
+  auth(UserRole.PROVIDER, UserRole.OWNER),
+  stripeConnectController.handleOnboardingComplete
+);
+
 /**
  * @route   POST /api/v1/stripe-connect/webhook
  * @desc    Handle Stripe Connect webhooks

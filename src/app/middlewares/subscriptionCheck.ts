@@ -118,7 +118,24 @@ export const checkCategoryLimit = async (
   }
 };
 
-// Middleware to check if provider has connected Stripe account before creating services
+/**
+ * Middleware to check if provider has connected and activated Stripe account
+ * before creating services or performing payment-related operations.
+ *
+ * IMPORTANT: This middleware includes intelligent fallback logic to handle
+ * timing issues between Stripe webhook delivery and service creation attempts.
+ *
+ * Flow:
+ * 1. Check if user has stripeAccountId
+ * 2. If status shows pending/incomplete, query Stripe API for fresh status
+ * 3. Refetch user from database after status update
+ * 4. Make final decision based on fresh data
+ *
+ * This prevents false negatives when:
+ * - User completes onboarding but webhook hasn't arrived yet
+ * - Frontend didn't call the complete-callback endpoint
+ * - Database write delay occurred
+ */
 export const checkStripeAccountActive = async (
   req: Request,
   res: Response,
@@ -128,18 +145,19 @@ export const checkStripeAccountActive = async (
     const userId = (req as any).user?.id;
     const userRole = (req as any).user?.role;
 
+    // Only apply this check to PROVIDER role
     if (userRole !== "PROVIDER") {
       return next();
     }
 
     const { User } = await import("../models/User.model");
-    const user = await User.findById(userId);
+    let user = await User.findById(userId);
 
     if (!user) {
       throw new ApiError(httpStatus.NOT_FOUND, "User not found");
     }
 
-    // Check if Stripe account is connected and active
+    // First check: Ensure Stripe account exists
     if (!user.stripeAccountId) {
       throw new ApiError(
         httpStatus.FORBIDDEN,
@@ -147,16 +165,73 @@ export const checkStripeAccountActive = async (
       );
     }
 
-    if (
-      !user.stripeOnboardingComplete ||
-      user.stripeAccountStatus !== "active"
-    ) {
-      throw new ApiError(
-        httpStatus.FORBIDDEN,
-        "Your Stripe account setup is incomplete or not active. Please complete the onboarding process to start receiving payments."
-      );
+    // Second check: Verify account is active
+    // If status is NOT active, make a fresh check with Stripe API as fallback
+    // This handles timing issues with webhook delivery
+    const isCurrentlyActive =
+      user.stripeOnboardingComplete === true &&
+      user.stripeAccountStatus === "active";
+
+    if (!isCurrentlyActive) {
+      // Status is pending/incomplete - perform fresh check with Stripe
+      // This adds ~200-500ms latency but ensures accuracy
+      try {
+        const { stripeConnectService } = await import(
+          "../modules/payment/stripeConnect.service"
+        );
+
+        // Query Stripe API and update database
+        const freshStatus = await stripeConnectService.checkAccountStatus(
+          userId
+        );
+
+        // Refetch user after status check (which updates the database)
+        user = await User.findById(userId);
+
+        if (!user) {
+          throw new ApiError(
+            httpStatus.NOT_FOUND,
+            "User not found after refresh"
+          );
+        }
+
+        // Check again with fresh data from database
+        const isNowActive =
+          user.stripeOnboardingComplete === true &&
+          user.stripeAccountStatus === "active";
+
+        if (!isNowActive) {
+          // Even after fresh check, account is not active
+          throw new ApiError(
+            httpStatus.FORBIDDEN,
+            freshStatus.message ||
+              "Your Stripe account setup is incomplete or not active. Please complete the onboarding process to start receiving payments."
+          );
+        }
+
+        // Success - account is now confirmed active, proceed
+        return next();
+      } catch (error: any) {
+        // If the fresh check itself threw an ApiError (like account incomplete),
+        // pass it through
+        if (error instanceof ApiError) {
+          throw error;
+        }
+
+        // If Stripe API call failed for other reasons (network, rate limit, etc.),
+        // fail safely by rejecting the request
+        console.error(
+          "[Stripe Status Check] Failed to verify account status:",
+          error
+        );
+        throw new ApiError(
+          httpStatus.SERVICE_UNAVAILABLE,
+          "Unable to verify your Stripe account status at this time. Please try again in a moment."
+        );
+      }
     }
 
+    // Account is already active in database, proceed immediately
     next();
   } catch (error) {
     next(error);
