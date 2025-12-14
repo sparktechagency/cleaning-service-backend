@@ -11,6 +11,7 @@ import { NotificationType, TempBooking } from "../../models";
 import { processReferralRewards } from "../../../utils/ReferralRewards";
 import Stripe from "stripe";
 import config from "../../../config";
+import { profile } from "console";
 
 const stripe = new Stripe(config.stripe_key as string, {
   apiVersion: "2024-06-20",
@@ -589,7 +590,7 @@ const getOwnerBookingOverview = async (bookingId: string, userId: string) => {
     )
     .populate(
       "providerId",
-      "_id userName email phoneNumber address experience aboutMe"
+      "_id userName email profilePicture phoneNumber address experience aboutMe"
     );
 
   if (!booking) {
@@ -632,6 +633,7 @@ const getOwnerBookingOverview = async (bookingId: string, userId: string) => {
     provider: {
       id: provider?._id || null,
       name: provider?.userName || "Unknown Provider",
+      profilePicture: provider?.profilePicture || null,
       phoneNumber: provider?.phoneNumber || "",
       email: provider?.email || "",
       address: provider?.address || null,
