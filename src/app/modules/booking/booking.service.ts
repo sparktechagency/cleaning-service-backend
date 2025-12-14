@@ -48,10 +48,12 @@ const createBooking = async (
   }
 
   // Step 2: Validate service
-  const service = await Service.findById(payload.serviceId).populate(
-    "providerId",
-    "email userName stripeAccountId stripeOnboardingComplete stripeAccountStatus"
-  );
+  const service = await Service.findById(payload.serviceId)
+    .select("+workSchedule")
+    .populate(
+      "providerId",
+      "email userName stripeAccountId stripeOnboardingComplete stripeAccountStatus"
+    );
   if (!service) {
     throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
   }
@@ -67,6 +69,29 @@ const createBooking = async (
       httpStatus.BAD_REQUEST,
       "Scheduled date must be in the future"
     );
+  }
+
+  // Step 3.5: Validate day-of-week availability
+  if (service.workSchedule) {
+    const dayOfWeek = scheduledDate.getUTCDay();
+    const dayMap = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ] as const;
+    const dayKey = dayMap[dayOfWeek];
+    const daySchedule = service.workSchedule[dayKey];
+
+    if (daySchedule && daySchedule.isAvailable === false) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        `This service is not available on ${daySchedule.day}s. Please choose another date.`
+      );
+    }
   }
 
   // Step 4: Validate service duration
