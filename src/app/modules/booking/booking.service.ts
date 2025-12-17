@@ -92,6 +92,65 @@ const createBooking = async (
         `This service is not available on ${daySchedule.day}s. Please choose another date.`
       );
     }
+
+    // Step 3.6: Validate time-range availability
+    if (
+      daySchedule &&
+      daySchedule.isAvailable &&
+      daySchedule.startTime &&
+      daySchedule.endTime
+    ) {
+      // Function to parse "HH:MM" to minutes since midnight
+      const parseTimeToMinutes = (timeStr: string): number => {
+        const [hours, minutes] = timeStr.split(":").map(Number);
+        return hours * 60 + minutes;
+      };
+
+      // Function to format minutes to "HH:MM"
+      const formatMinutesToTime = (minutes: number): string => {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return `${hours.toString().padStart(2, "0")}:${mins
+          .toString()
+          .padStart(2, "0")}`;
+      };
+
+      // Get booking start time in minutes (UTC)
+      const bookingStartMinutes =
+        scheduledDate.getUTCHours() * 60 + scheduledDate.getUTCMinutes();
+
+      // Calculate booking end time in minutes
+      const bookingEndMinutes =
+        bookingStartMinutes + payload.serviceDuration * 60;
+
+      // Parse provider's working hours
+      const providerStartMinutes = parseTimeToMinutes(daySchedule.startTime);
+      const providerEndMinutes = parseTimeToMinutes(daySchedule.endTime);
+
+      // Validate booking start time
+      if (bookingStartMinutes < providerStartMinutes) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          `Booking starts at ${formatMinutesToTime(
+            bookingStartMinutes
+          )} but provider is only available from ${daySchedule.startTime} on ${
+            daySchedule.day
+          }s. Please choose another time.`
+        );
+      }
+
+      // Validate booking end time
+      if (bookingEndMinutes > providerEndMinutes) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          `Booking ends at ${formatMinutesToTime(
+            bookingEndMinutes
+          )} but provider is only available until ${daySchedule.endTime} on ${
+            daySchedule.day
+          }s. Please choose another time.`
+        );
+      }
+    }
   }
 
   // Step 4: Validate service duration
