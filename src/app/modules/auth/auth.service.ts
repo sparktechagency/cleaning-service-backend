@@ -5,7 +5,9 @@ import mongoose from "mongoose";
 import config from "../../../config";
 import ApiError from "../../../errors/ApiErrors";
 import { jwtHelpers } from "../../../helpers/jwtHelpers";
-import emailSender from "../../../shared/emailSender";
+// PREVIOUS EMAIL IMPLEMENTATION - Commented out for SMS implementation
+// import emailSender from "../../../shared/emailSender";
+import smsSender from "../../../shared/smsSender";
 import { User, UserStatus, RegistrationStatus, TempUser } from "../../models";
 import { Referral } from "../../models/Referral.model";
 import { fileUploader } from "../../../helpers/fileUploader";
@@ -14,11 +16,12 @@ import {
   generateUniqueReferralCode,
   validateReferralCode,
 } from "../../../utils/ReferralCodeGenerator";
-import {
-  EMAIL_VERIFICATION_TEMPLATE,
-  PASSWORD_RESET_TEMPLATE,
-  WELCOME_COMPLETE_TEMPLATE,
-} from "../../../utils/Template";
+// PREVIOUS EMAIL TEMPLATES - Commented out for SMS implementation
+// import {
+//   EMAIL_VERIFICATION_TEMPLATE,
+//   PASSWORD_RESET_TEMPLATE,
+//   WELCOME_COMPLETE_TEMPLATE,
+// } from "../../../utils/Template";
 
 const registerUser = async (userData: any) => {
   try {
@@ -57,7 +60,7 @@ const registerUser = async (userData: any) => {
       await TempUser.findByIdAndDelete(existingTempUser._id);
     }
 
-    const emailOtp = generateOTPString();
+    const verificationOtp = generateOTPString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     const hashedPassword = await bcrypt.hash(
@@ -72,33 +75,46 @@ const registerUser = async (userData: any) => {
       phoneNumber: userData.phoneNumber,
       password: hashedPassword,
       referralCode: userData.referralCode,
-      emailVerificationOtp: emailOtp,
+      emailVerificationOtp: verificationOtp,
       emailVerificationOtpExpiry: otpExpiry,
     };
 
     const newTempUser = await TempUser.create(tempUserPayload);
 
+    // PREVIOUS EMAIL IMPLEMENTATION - Commented out for SMS implementation
     // Send verification email
+    // try {
+    //   const emailTemplate = EMAIL_VERIFICATION_TEMPLATE(
+    //     verificationOtp,
+    //     userData.userName
+    //   );
+    //   await emailSender(
+    //     userData.email,
+    //     emailTemplate,
+    //     "Verify Your Email - Cleaning Service 🧹"
+    //   );
+    // } catch (emailError) {
+    //   console.error("Email sending error:", emailError);
+    // }
+
+    // NEW SMS IMPLEMENTATION - Send verification OTP via SMS using Twilio
     try {
-      const emailTemplate = EMAIL_VERIFICATION_TEMPLATE(
-        emailOtp,
+      await smsSender.sendVerificationOTP(
+        userData.phoneNumber,
+        verificationOtp,
         userData.userName
       );
-      await emailSender(
-        userData.email,
-        emailTemplate,
-        "Verify Your Email - Cleaning Service 🧹"
-      );
-    } catch (emailError) {
-      console.error("Email sending error:", emailError);
+    } catch (smsError) {
+      console.error("SMS sending error:", smsError);
     }
 
     return {
       email: newTempUser.email,
+      phoneNumber: newTempUser.phoneNumber,
       userName: newTempUser.userName,
-      otp: process.env.NODE_ENV === "development" ? emailOtp : undefined, // Only return OTP in development
+      otp: process.env.NODE_ENV === "development" ? verificationOtp : undefined, // Only return OTP in development
       message:
-        "Registration initiated successfully. Please verify your email with the OTP sent to your email address.",
+        "Registration initiated successfully. Please verify your phone number with the OTP sent via SMS.",
     };
   } catch (error) {
     throw error;
@@ -347,19 +363,31 @@ const completeRegistration = async (registrationData: any, files: any) => {
 
     await session.commitTransaction();
 
+    // PREVIOUS EMAIL IMPLEMENTATION - Commented out for SMS implementation
     // Send welcome email
+    // try {
+    //   const welcomeTemplate = WELCOME_COMPLETE_TEMPLATE(
+    //     newUser.userName,
+    //     registrationData.role
+    //   );
+    //   await emailSender(
+    //     newUser.email,
+    //     welcomeTemplate,
+    //     "Welcome to Cleaning Service! 🎉 Registration Complete"
+    //   );
+    // } catch (emailError) {
+    //   console.error("Welcome email sending error:", emailError);
+    // }
+
+    // NEW SMS IMPLEMENTATION - Send welcome message via SMS using Twilio
     try {
-      const welcomeTemplate = WELCOME_COMPLETE_TEMPLATE(
+      await smsSender.sendWelcomeMessage(
+        newUser.phoneNumber,
         newUser.userName,
         registrationData.role
       );
-      await emailSender(
-        newUser.email,
-        welcomeTemplate,
-        "Welcome to Cleaning Service! 🎉 Registration Complete"
-      );
-    } catch (emailError) {
-      console.error("Welcome email sending error:", emailError);
+    } catch (smsError) {
+      console.error("Welcome SMS sending error:", smsError);
     }
 
     // Remove sensitive fields from response
@@ -523,21 +551,36 @@ const forgotPassword = async (payload: { email: string }) => {
     resetPasswordOtpExpiry: otpExpiry,
   });
 
+  // PREVIOUS EMAIL IMPLEMENTATION - Commented out for SMS implementation
+  // try {
+  //   const resetTemplate = PASSWORD_RESET_TEMPLATE(
+  //     otp,
+  //     userData.userName || "User"
+  //   );
+  //   await emailSender(
+  //     payload.email,
+  //     resetTemplate,
+  //     "🔐 Password Reset Request - Cleaning Service"
+  //   );
+  // } catch (emailError) {
+  //   console.error("Password reset email error:", emailError);
+  // }
+
+  // NEW SMS IMPLEMENTATION - Send password reset OTP via SMS using Twilio
   try {
-    const resetTemplate = PASSWORD_RESET_TEMPLATE(
+    await smsSender.sendPasswordResetOTP(
+      userData.phoneNumber,
       otp,
       userData.userName || "User"
     );
-    await emailSender(
-      payload.email,
-      resetTemplate,
-      "🔐 Password Reset Request - Cleaning Service"
-    );
-  } catch (emailError) {
-    console.error("Password reset email error:", emailError);
+  } catch (smsError) {
+    console.error("Password reset SMS error:", smsError);
   }
 
-  return { message: "OTP sent to your email", otp };
+  return {
+    message: "OTP sent to your phone number via SMS",
+    otp: process.env.NODE_ENV === "development" ? otp : undefined, // Only return OTP in development
+  };
 };
 
 const resendOtp = async (email: string, otpType: string = "RESET_PASSWORD") => {
@@ -560,22 +603,34 @@ const resendOtp = async (email: string, otpType: string = "RESET_PASSWORD") => {
     tempUser.emailVerificationOtpExpiry = otpExpiry;
     await tempUser.save();
 
+    // PREVIOUS EMAIL IMPLEMENTATION - Commented out for SMS implementation
+    // try {
+    //   const emailTemplate = EMAIL_VERIFICATION_TEMPLATE(
+    //     otp,
+    //     tempUser.userName || "User"
+    //   );
+    //   await emailSender(
+    //     email,
+    //     emailTemplate,
+    //     "Verify Your Email - Cleaning Service 🧹"
+    //   );
+    // } catch (emailError) {
+    //   console.error("Resend email verification OTP error:", emailError);
+    // }
+
+    // NEW SMS IMPLEMENTATION - Resend verification OTP via SMS using Twilio
     try {
-      const emailTemplate = EMAIL_VERIFICATION_TEMPLATE(
+      await smsSender.sendVerificationOTP(
+        tempUser.phoneNumber,
         otp,
         tempUser.userName || "User"
       );
-      await emailSender(
-        email,
-        emailTemplate,
-        "Verify Your Email - Cleaning Service 🧹"
-      );
-    } catch (emailError) {
-      console.error("Resend email verification OTP error:", emailError);
+    } catch (smsError) {
+      console.error("Resend verification OTP SMS error:", smsError);
     }
 
     return {
-      message: "OTP resent to your email",
+      message: "OTP resent to your phone number via SMS",
       otp: process.env.NODE_ENV === "development" ? otp : undefined,
     };
   }
@@ -596,22 +651,34 @@ const resendOtp = async (email: string, otpType: string = "RESET_PASSWORD") => {
     resetPasswordOtpExpiry: otpExpiry,
   });
 
+  // PREVIOUS EMAIL IMPLEMENTATION - Commented out for SMS implementation
+  // try {
+  //   const resetTemplate = PASSWORD_RESET_TEMPLATE(
+  //     otp,
+  //     userData.userName || "User"
+  //   );
+  //   await emailSender(
+  //     email,
+  //     resetTemplate,
+  //     "🔐 Password Reset OTP - Cleaning Service"
+  //   );
+  // } catch (emailError) {
+  //   console.error("Resend password reset OTP error:", emailError);
+  // }
+
+  // NEW SMS IMPLEMENTATION - Resend password reset OTP via SMS using Twilio
   try {
-    const resetTemplate = PASSWORD_RESET_TEMPLATE(
+    await smsSender.sendPasswordResetOTP(
+      userData.phoneNumber,
       otp,
       userData.userName || "User"
     );
-    await emailSender(
-      email,
-      resetTemplate,
-      "🔐 Password Reset OTP - Cleaning Service"
-    );
-  } catch (emailError) {
-    console.error("Resend password reset OTP error:", emailError);
+  } catch (smsError) {
+    console.error("Resend password reset OTP SMS error:", smsError);
   }
 
   return {
-    message: "OTP resent to your email",
+    message: "OTP resent to your phone number via SMS",
     otp: process.env.NODE_ENV === "development" ? otp : undefined,
   };
 };
