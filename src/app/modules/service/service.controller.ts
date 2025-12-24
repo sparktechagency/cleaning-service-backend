@@ -152,6 +152,24 @@ const getServiceProviderSchedule = catchAsync(
   }
 );
 
+const getServiceProviderAvailableSlots = catchAsync(
+  async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { date } = req.query;
+    const result = await serviceService.getServiceProviderAvailableSlots(
+      id,
+      date as string
+    );
+
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Available slots retrieved successfully",
+      data: result,
+    });
+  }
+);
+
 const getServiceRatingAndReview = catchAsync(
   async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -210,6 +228,7 @@ export const serviceController = {
   getServiceOverview,
   getServiceProviderDetails,
   getServiceProviderSchedule,
+  getServiceProviderAvailableSlots,
   getServiceRatingAndReview,
   searchAndFilterServices,
   getProviderHomepageContentData,

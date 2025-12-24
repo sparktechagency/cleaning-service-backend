@@ -621,6 +621,147 @@ const getServiceProviderSchedule = async (serviceId: string) => {
   return service.workSchedule;
 };
 
+const getServiceProviderAvailableSlots = async (
+  serviceId: string,
+  date: string
+) => {
+  // Validate serviceId
+  if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid service ID");
+  }
+
+  // Fetch service with workSchedule and providerId
+  const service = await Service.findById(serviceId).select(
+    "workSchedule providerId"
+  );
+
+  if (!service) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
+  }
+
+  // Parse date and get day of week
+  const [year, month, day] = date.split("-").map(Number);
+  const selectedDate = new Date(Date.UTC(year, month - 1, day));
+
+  if (isNaN(selectedDate.getTime())) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "Invalid date format");
+  }
+
+  const dayOfWeek = selectedDate.getUTCDay();
+  const dayMap = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ] as const;
+  const dayKey = dayMap[dayOfWeek];
+
+  // Get schedule for the selected day
+  const daySchedule = service.workSchedule?.[dayKey];
+
+  // Check if provider is available on this day
+  if (!daySchedule || !daySchedule.isAvailable) {
+    return {
+      date,
+      day: daySchedule?.day || dayKey.charAt(0).toUpperCase() + dayKey.slice(1),
+      isAvailable: false,
+      message: "Provider is not available on this day",
+      slots: [],
+    };
+  }
+
+  // Validate startTime and endTime exist
+  if (!daySchedule.startTime || !daySchedule.endTime) {
+    return {
+      date,
+      day: daySchedule.day,
+      isAvailable: false,
+      message: "Provider has not set working hours for this day",
+      slots: [],
+    };
+  }
+
+  // Parse time to minutes helper
+  const parseTimeToMinutes = (timeStr: string): number => {
+    const [hours, minutes] = timeStr.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Format minutes to time helper
+  const formatMinutesToTime = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, "0")}:${mins
+      .toString()
+      .padStart(2, "0")}`;
+  };
+
+  const startMinutes = parseTimeToMinutes(daySchedule.startTime);
+  const endMinutes = parseTimeToMinutes(daySchedule.endTime);
+
+  // Generate 30-minute slots
+  const SLOT_DURATION = 30;
+  const allSlots: { time: string; minutes: number }[] = [];
+
+  for (let m = startMinutes; m < endMinutes; m += SLOT_DURATION) {
+    allSlots.push({
+      time: formatMinutesToTime(m),
+      minutes: m,
+    });
+  }
+
+  // Get start and end of the selected date in UTC
+  const dayStart = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const dayEnd = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+
+  // Fetch all PENDING and ONGOING bookings for this provider on this date
+  const bookings = await Booking.find({
+    providerId: service.providerId,
+    status: { $in: ["PENDING", "ONGOING"] },
+    scheduledAt: { $gte: dayStart, $lte: dayEnd },
+  }).select("scheduledAt serviceDuration");
+
+  // Convert bookings to time ranges in minutes
+  const bookedRanges = bookings.map((booking) => {
+    const bookingStart = new Date(booking.scheduledAt);
+    const bookingStartMinutes =
+      bookingStart.getUTCHours() * 60 + bookingStart.getUTCMinutes();
+    const bookingEndMinutes =
+      bookingStartMinutes + booking.serviceDuration * 60;
+    return { start: bookingStartMinutes, end: bookingEndMinutes };
+  });
+
+  // Check each slot for availability
+  const slots = allSlots.map((slot) => {
+    const slotStart = slot.minutes;
+
+    // Check if slot overlaps with any booking
+    // Using <= for end time to match booking conflict detection logic
+    const isBooked = bookedRanges.some(
+      (range) => slotStart >= range.start && slotStart <= range.end
+    );
+
+    return {
+      time: slot.time,
+      available: !isBooked,
+    };
+  });
+
+  return {
+    date,
+    day: daySchedule.day,
+    isAvailable: true,
+    workingHours: {
+      startTime: daySchedule.startTime,
+      endTime: daySchedule.endTime,
+    },
+    slots,
+  };
+};
+
 const searchAndFilterServices = async (queryParams: {
   search?: string;
   categoryId?: string;
@@ -1036,6 +1177,7 @@ export const serviceService = {
   deleteService,
   getServiceRatingAndReview,
   getServiceProviderSchedule,
+  getServiceProviderAvailableSlots,
   searchAndFilterServices,
   getProviderHomepageContentData,
 };

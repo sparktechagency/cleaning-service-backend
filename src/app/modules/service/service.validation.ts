@@ -187,10 +187,22 @@ const deleteServiceSchema = z.object({
   }),
 });
 
+const getAvailableSlotsSchema = z.object({
+  params: z.object({
+    id: z.string().min(1, "Service ID is required"),
+  }),
+  query: z.object({
+    date: z
+      .string({ required_error: "Date is required" })
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Use YYYY-MM-DD"),
+  }),
+});
+
 export const serviceValidation = {
   createServiceSchema,
   updateServiceSchema,
   getServiceSchema,
   getServicesSchema,
   deleteServiceSchema,
+  getAvailableSlotsSchema,
 };

@@ -97,6 +97,13 @@ router.get(
 );
 
 router.get(
+  "/provider/available-slots/:id",
+  auth(UserRole.OWNER),
+  validateRequest(serviceValidation.getAvailableSlotsSchema),
+  serviceController.getServiceProviderAvailableSlots
+);
+
+router.get(
   "/ratings-reviews/:id",
   auth(UserRole.OWNER),
   validateRequest(serviceValidation.getServiceSchema),
