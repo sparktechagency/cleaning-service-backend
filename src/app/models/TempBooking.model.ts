@@ -103,10 +103,10 @@ const TempBookingSchema = new Schema<ITempBooking>(
   }
 );
 
-// TTL index to automatically delete temp bookings after 30 minutes if payment not completed
+// TTL index to automatically delete temp bookings after 10 minutes if payment not completed
 TempBookingSchema.index(
   { createdAt: 1 },
-  { expireAfterSeconds: 30 * 60 } // 30 minutes
+  { expireAfterSeconds: 10 * 60 } // 10 minutes
 );
 
 // Compound index for faster queries

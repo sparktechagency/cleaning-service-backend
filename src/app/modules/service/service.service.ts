@@ -641,7 +641,7 @@ const getServiceOverview = async (serviceId: string) => {
   const service = await Service.findById(serviceId)
     .populate("providerId", "lattitude longitude")
     .select(
-      "name description coverImages coverImagesMeta ratingsAverage needApproval rateByHour providerId totalOrders"
+      "name description coverImages coverImagesMeta ratingsAverage needApproval rateByHour providerId totalOrders bufferTime"
     )
     .lean();
 
@@ -673,6 +673,7 @@ const getServiceOverview = async (serviceId: string) => {
     name: service.name,
     oneImage: firstImage,
     rateByHour: service.rateByHour,
+    bufferTime: service.bufferTime || 0,
     lattitude: (service.providerId as any)?.lattitude || null,
     longitude: (service.providerId as any)?.longitude || null,
     averageRatings: service.ratingsAverage || 0,
@@ -865,23 +866,15 @@ const getServiceProviderAvailableSlots = async (
   const dayEnd = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
 
   // Fetch all non-cancelled bookings for this provider on this date
+  // Only confirmed bookings block time slots (not TempBookings pending payment)
   const bookings = await Booking.find({
     providerId: service.providerId,
     status: { $ne: "CANCELLED" },
     scheduledAt: { $gte: dayStart, $lte: dayEnd },
   }).select("scheduledAt serviceDuration bufferTime");
 
-  // Also fetch TempBookings (pending payment) for this provider on this date
-  const tempBookings = await TempBooking.find({
-    providerId: service.providerId,
-    scheduledAt: { $gte: dayStart, $lte: dayEnd },
-  }).select("scheduledAt serviceDuration bufferTime");
-
-  // Combine both bookings and temp bookings
-  const allBookings = [...bookings, ...tempBookings];
-
   // Convert bookings to time ranges in minutes (including bufferTime from service)
-  const bookedRanges = allBookings.map((booking) => {
+  const bookedRanges = bookings.map((booking) => {
     const bookingStart = new Date(booking.scheduledAt);
     const bookingStartMinutes =
       bookingStart.getUTCHours() * 60 + bookingStart.getUTCMinutes();

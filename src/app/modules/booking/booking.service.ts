@@ -221,9 +221,10 @@ const createBooking = async (
     $or: [
       {
         // New booking starts during existing booking (including buffer)
+        // Use $gt for exclusive end time (matches available slots logic)
         scheduledAt: { $lte: scheduledDate },
         $expr: {
-          $gte: [
+          $gt: [
             {
               $add: [
                 "$scheduledAt",
@@ -239,7 +240,7 @@ const createBooking = async (
         // New booking ends during existing booking
         scheduledAt: { $lt: scheduledEndTime },
         $expr: {
-          $gte: [
+          $gt: [
             {
               $add: [
                 "$scheduledAt",
@@ -262,6 +263,57 @@ const createBooking = async (
     throw new ApiError(
       httpStatus.CONFLICT,
       `This provider already has a ${conflictingBooking.status.toLowerCase()} booking at this time. Please choose a different time slot.`
+    );
+  }
+
+  // Step 7.5: Check for TempBooking conflicts (pending payment - race condition prevention)
+  // This prevents two users from initiating payment for the same time slot
+  const conflictingTempBooking = await TempBooking.findOne({
+    providerId: provider._id,
+    $or: [
+      {
+        // New booking starts during existing temp booking (including buffer)
+        scheduledAt: { $lte: scheduledDate },
+        $expr: {
+          $gt: [
+            {
+              $add: [
+                "$scheduledAt",
+                { $multiply: ["$serviceDuration", 60 * 60 * 1000] },
+                { $multiply: ["$bufferTime", 60 * 1000] },
+              ],
+            },
+            scheduledDate,
+          ],
+        },
+      },
+      {
+        // New booking ends during existing temp booking
+        scheduledAt: { $lt: scheduledEndTime },
+        $expr: {
+          $gt: [
+            {
+              $add: [
+                "$scheduledAt",
+                { $multiply: ["$serviceDuration", 60 * 60 * 1000] },
+                { $multiply: ["$bufferTime", 60 * 1000] },
+              ],
+            },
+            scheduledEndTime,
+          ],
+        },
+      },
+      {
+        // New booking completely overlaps existing temp booking
+        scheduledAt: { $gte: scheduledDate, $lt: scheduledEndTime },
+      },
+    ],
+  });
+
+  if (conflictingTempBooking) {
+    throw new ApiError(
+      httpStatus.CONFLICT,
+      "Another user is currently completing payment for this time slot. Please try again in a few minutes or choose a different time."
     );
   }
 
