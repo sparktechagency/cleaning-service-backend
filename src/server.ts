@@ -4,7 +4,10 @@ import config from "./config";
 import "./shared/database";
 import app from "./app";
 import { socketHandler } from "./socket/socketHandler";
-import { startSubscriptionCronJob } from "./cron/subscriptionCron";
+import {
+  startSubscriptionCronJob,
+  startMonthlyLimitResetCronJob,
+} from "./cron/subscriptionCron";
 
 let server: Server;
 
@@ -27,6 +30,9 @@ async function startServer() {
 
   // Start subscription expiry cron job
   startSubscriptionCronJob();
+
+  // Start monthly booking limit reset cron job
+  startMonthlyLimitResetCronJob();
 }
 
 async function main() {

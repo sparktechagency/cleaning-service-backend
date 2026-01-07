@@ -247,9 +247,21 @@ const getAllServices = async (options: {
     query.gender = gender;
   }
 
-  // If userId provided, filter by provider
+  // If userId provided, filter by provider (provider viewing own services)
   if (userId) {
     query.providerId = userId;
+  } else {
+    // When not viewing own services, exclude limit-exceeded providers
+    // Use real-time check to get providers who have exceeded their booking limit
+    const { subscriptionService } = await import(
+      "../subscription/subscription.service"
+    );
+    const limitExceededProviderIds =
+      await subscriptionService.getProvidersExceedingLimit();
+
+    if (limitExceededProviderIds.length > 0) {
+      query.providerId = { $nin: limitExceededProviderIds };
+    }
   }
 
   const total = await Service.countDocuments(query);
@@ -601,7 +613,20 @@ const getServicesUnderCategory = async (categoryId: string) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid category ID");
   }
 
-  const services = await Service.find({ categoryId })
+  // Get providers who have exceeded their booking limit (real-time check)
+  const { subscriptionService } = await import(
+    "../subscription/subscription.service"
+  );
+  const limitExceededProviderIds =
+    await subscriptionService.getProvidersExceedingLimit();
+
+  // Build query to exclude limit-exceeded providers
+  const query: any = { categoryId };
+  if (limitExceededProviderIds.length > 0) {
+    query.providerId = { $nin: limitExceededProviderIds };
+  }
+
+  const services = await Service.find(query)
     .populate("providerId", "userName profilePicture")
     .select(
       "name coverImages coverImagesMeta ratingsAverage needApproval rateByHour providerId"
@@ -941,8 +966,20 @@ const searchAndFilterServices = async (queryParams: {
       language,
     } = queryParams;
 
+    // Step 0: Get providers who have exceeded their booking limit (real-time check)
+    const { subscriptionService } = await import(
+      "../subscription/subscription.service"
+    );
+    const limitExceededProviderIds =
+      await subscriptionService.getProvidersExceedingLimit();
+
     // Step 1: Build base query for services
     let serviceQuery: any = {};
+
+    // Exclude services from limit-exceeded providers
+    if (limitExceededProviderIds.length > 0) {
+      serviceQuery.providerId = { $nin: limitExceededProviderIds };
+    }
 
     // Search by name or description
     if (search && search.trim()) {

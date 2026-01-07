@@ -62,6 +62,7 @@ export interface IUser extends Document {
   isOnline?: boolean;
   lastSeen?: Date;
   isDeleted?: boolean;
+  bookingLimitExceeded?: boolean; // True when provider's monthly booking limit is reached
   createdAt?: Date;
   updatedAt?: Date;
   deletedAt?: Date;
@@ -234,6 +235,11 @@ const UserSchema = new Schema<IUser>(
     },
     deletedAt: {
       type: Date,
+    },
+    bookingLimitExceeded: {
+      type: Boolean,
+      default: false,
+      index: true, // Index for efficient service filtering queries
     },
   },
   {

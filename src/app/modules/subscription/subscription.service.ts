@@ -105,14 +105,24 @@ const checkPlanLimits = async (userId: string) => {
   // Count current usage
   const servicesCount = await Service.countDocuments({ providerId: userId });
 
-  // Count bookings received this month
-  const startOfMonth = new Date();
-  startOfMonth.setDate(1);
-  startOfMonth.setHours(0, 0, 0, 0);
+  // Determine booking count period based on plan type:
+  // - PAID plans: count from subscription start date (30-day rolling period)
+  // - FREE plans: count from calendar month start
+  let bookingCountStartDate: Date;
 
-  const bookingsThisMonth = await Booking.countDocuments({
+  if (subscription && subscription.status === SubscriptionStatus.ACTIVE) {
+    // Paid plan: count bookings from subscription start date
+    bookingCountStartDate = new Date(subscription.startDate);
+  } else {
+    // Free plan: count bookings from calendar month start
+    bookingCountStartDate = new Date();
+    bookingCountStartDate.setDate(1);
+    bookingCountStartDate.setHours(0, 0, 0, 0);
+  }
+
+  const bookingsInPeriod = await Booking.countDocuments({
     providerId: userId,
-    createdAt: { $gte: startOfMonth },
+    createdAt: { $gte: bookingCountStartDate },
   });
 
   // Count unique categories
@@ -127,14 +137,14 @@ const checkPlanLimits = async (userId: string) => {
     limits,
     usage: {
       services: servicesCount,
-      bookingsThisMonth,
+      bookingsInPeriod,
       categories: uniqueCategories,
     },
     canCreateService:
       limits.servicesLimit === -1 || servicesCount < limits.servicesLimit,
     canReceiveBooking:
       limits.bookingsPerMonth === -1 ||
-      bookingsThisMonth < limits.bookingsPerMonth,
+      bookingsInPeriod < limits.bookingsPerMonth,
     canAddCategory:
       limits.categoriesLimit === -1 ||
       uniqueCategories < limits.categoriesLimit,
@@ -364,6 +374,7 @@ const createSubscriptionCheckout = async (
     await User.findByIdAndUpdate(userId, {
       plan,
       badge: PLAN_LIMITS[plan].badge,
+      bookingLimitExceeded: false, // Reset limit status on plan upgrade
     });
 
     // Record transaction
@@ -646,6 +657,7 @@ const verifyAndActivateSubscription = async (sessionId: string) => {
     {
       plan,
       badge: PLAN_LIMITS[plan].badge,
+      bookingLimitExceeded: false, // Reset limit status on plan upgrade
     },
     { new: true } // Return updated document
   );
@@ -909,8 +921,10 @@ const handleStripeWebhook = async (
     );
   }
 
-  const { handleSubscriptionEvent } = await import("../../../helpers/handleStripeEvents");
-  
+  const { handleSubscriptionEvent } = await import(
+    "../../../helpers/handleStripeEvents"
+  );
+
   if (!handleSubscriptionEvent(event.type)) {
     return { received: true, eventType: event.type };
   }
@@ -976,6 +990,92 @@ const handleStripeWebhook = async (
   return { received: true, eventType: event.type };
 };
 
+//  Get list of provider IDs who have exceeded their booking limits. Uses real-time database query to ensure accuracy. Called by service queries to filter out limit-exceeded providers.
+
+const getProvidersExceedingLimit = async (): Promise<string[]> => {
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+
+  // Get all FREE plan providers (no active subscription or plan is FREE)
+  const freeProviders = await User.find({
+    role: "PROVIDER",
+    $or: [{ plan: "FREE" }, { plan: { $exists: false } }, { plan: null }],
+  })
+    .select("_id")
+    .lean();
+
+  const exceededProviderIds: string[] = [];
+
+  // Check each FREE provider's booking count
+  for (const provider of freeProviders) {
+    const bookingCount = await Booking.countDocuments({
+      providerId: provider._id,
+      createdAt: { $gte: startOfMonth },
+    });
+
+    // FREE plan limit is 2 bookings per month
+    if (bookingCount >= PLAN_LIMITS.FREE.bookingsPerMonth) {
+      exceededProviderIds.push(provider._id.toString());
+    }
+  }
+
+  return exceededProviderIds;
+};
+
+// Check if a specific provider has exceeded their booking limit. Sends notification if limit just exceeded (first time).
+
+const checkAndNotifyProviderLimit = async (
+  providerId: string
+): Promise<boolean> => {
+  const limits = await checkPlanLimits(providerId);
+
+  // If provider can still receive bookings, no action needed
+  if (limits.canReceiveBooking) {
+    return false;
+  }
+
+  // Provider has reached their limit
+  const user = await User.findById(providerId);
+  if (!user) return true;
+
+  // Check if we already sent notification (avoid duplicate notifications)
+  if (!user.bookingLimitExceeded) {
+    // First time reaching limit - set flag and send notification
+    await User.findByIdAndUpdate(providerId, { bookingLimitExceeded: true });
+
+    const planLimit = limits.limits.bookingsPerMonth;
+    await notificationService.createNotification({
+      recipientId: providerId,
+      type: NotificationType.BOOKING_LIMIT_EXCEEDED,
+      title: "Booking Limit Reached",
+      message: `You've reached your ${limits.currentPlan} plan limit of ${planLimit} bookings. Your services are now hidden from owners. Upgrade your plan to restore visibility!`,
+      data: {
+        currentPlan: limits.currentPlan,
+        bookingsInPeriod: limits.usage.bookingsInPeriod,
+        monthlyLimit: planLimit,
+      },
+    });
+  }
+
+  return true;
+};
+
+// Reset booking limit exceeded flag for FREE plan providers.
+// Called by cron job on the 1st of each month.
+const resetMonthlyBookingLimits = async (): Promise<{ resetCount: number }> => {
+  const result = await User.updateMany(
+    {
+      role: "PROVIDER",
+      bookingLimitExceeded: true,
+      $or: [{ plan: "FREE" }, { plan: { $exists: false } }, { plan: null }],
+    },
+    { bookingLimitExceeded: false }
+  );
+
+  return { resetCount: result.modifiedCount };
+};
+
 export const subscriptionService = {
   getPlanDetails,
   getAllPlans,
@@ -986,4 +1086,7 @@ export const subscriptionService = {
   cancelSubscription,
   downgradeExpiredSubscriptions,
   handleStripeWebhook,
+  getProvidersExceedingLimit,
+  checkAndNotifyProviderLimit,
+  resetMonthlyBookingLimits,
 };

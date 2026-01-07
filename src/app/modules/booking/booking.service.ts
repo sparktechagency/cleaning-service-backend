@@ -7,11 +7,11 @@ import httpStatus from "http-status";
 import QRCode from "qrcode";
 import crypto from "crypto";
 import { notificationService } from "../notification/notification.service";
+import { subscriptionService } from "../subscription/subscription.service";
 import { NotificationType, TempBooking } from "../../models";
 import { processReferralRewards } from "../../../utils/ReferralRewards";
 import Stripe from "stripe";
 import config from "../../../config";
-import { profile } from "console";
 
 const stripe = new Stripe(config.stripe_key as string, {
   apiVersion: "2024-06-20",
@@ -589,6 +589,22 @@ const confirmBookingAfterPayment = async (
       });
     }
 
+    // Check provider's booking limit and send notification if exceeded
+    if (createdBooking.providerId) {
+      const providerIdForLimit =
+        createdBooking.providerId?._id?.toString() ||
+        createdBooking.providerId?.toString();
+      if (providerIdForLimit) {
+        try {
+          await subscriptionService.checkAndNotifyProviderLimit(
+            providerIdForLimit
+          );
+        } catch (err) {
+          // Non-critical - don't fail the booking
+        }
+      }
+    }
+
     // Step 6: Return populated booking
     const populatedBooking = await Booking.findById(createdBooking._id)
       .populate("serviceId", "name rateByHour coverImages")
@@ -935,6 +951,13 @@ const acceptBookingByProvider = async (
       serviceName: serviceName,
     },
   });
+
+  // Check if provider has reached their booking limit and notify
+  try {
+    await subscriptionService.checkAndNotifyProviderLimit(providerId);
+  } catch (err) {
+    // Non-critical - don't fail the booking acceptance
+  }
 
   return updatedBooking;
 };

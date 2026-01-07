@@ -8,6 +8,9 @@ export enum NotificationType {
   BOOKING_CANCELLED = "BOOKING_CANCELLED",
   BOOKING_RATED = "BOOKING_RATED",
 
+  // Subscription related
+  BOOKING_LIMIT_EXCEEDED = "BOOKING_LIMIT_EXCEEDED",
+
   // Referral related
   REFERRAL_REWARD_EARNED = "REFERRAL_REWARD_EARNED",
 
