@@ -6,7 +6,6 @@ import { Types } from "mongoose";
 import { fileUploader } from "../../../helpers/fileUploader";
 import { User } from "../../models/User.model";
 import { Booking } from "../booking/booking.model";
-import { Service } from "../service/service.model";
 import { KnowledgeHub } from "./knowledgeHub.model";
 import { WebsiteContent } from "./websiteContent.model";
 import * as notificationService from "../notification/notification.service";

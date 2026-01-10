@@ -39,8 +39,7 @@ export const checkBookingLimit = async (
   next: NextFunction
 ) => {
   try {
-    // This check happens when a booking is being created
-    // We need to verify the provider's limits
+    // This check happens when a booking is being created. We need to verify the provider's limits
     const { serviceId } = req.body;
 
     if (!serviceId) {
@@ -118,23 +117,23 @@ export const checkCategoryLimit = async (
   }
 };
 
-/**
- * Middleware to check if provider has connected and activated Stripe account
- * before creating services or performing payment-related operations.
- *
- * IMPORTANT: This middleware includes intelligent fallback logic to handle
- * timing issues between Stripe webhook delivery and service creation attempts.
- *
- * Flow:
- * 1. Check if user has stripeAccountId
- * 2. If status shows pending/incomplete, query Stripe API for fresh status
- * 3. Refetch user from database after status update
- * 4. Make final decision based on fresh data
- *
- * This prevents false negatives when:
- * - User completes onboarding but webhook hasn't arrived yet
- * - Frontend didn't call the complete-callback endpoint
- * - Database write delay occurred
+/*
+  Middleware to check if provider has connected and activated Stripe account
+  before creating services or performing payment-related operations.
+ 
+  IMPORTANT: This middleware includes intelligent fallback logic to handle
+  timing issues between Stripe webhook delivery and service creation attempts.
+ 
+  Flow:
+  1. Check if user has stripeAccountId
+  2. If status shows pending/incomplete, query Stripe API for fresh status
+  3. Refetch user from database after status update
+  4. Make final decision based on fresh data
+ 
+  This prevents false negatives when:
+   - User completes onboarding but webhook hasn't arrived yet
+   - Frontend didn't call the complete-callback endpoint
+   - Database write delay occurred
  */
 export const checkStripeAccountActive = async (
   req: Request,
@@ -173,8 +172,7 @@ export const checkStripeAccountActive = async (
       user.stripeAccountStatus === "active";
 
     if (!isCurrentlyActive) {
-      // Status is pending/incomplete - perform fresh check with Stripe
-      // This adds ~200-500ms latency but ensures accuracy
+      // Status is pending/incomplete - perform fresh check with Stripe API
       try {
         const { stripeConnectService } = await import(
           "../modules/payment/stripeConnect.service"
@@ -212,14 +210,12 @@ export const checkStripeAccountActive = async (
         // Success - account is now confirmed active, proceed
         return next();
       } catch (error: any) {
-        // If the fresh check itself threw an ApiError (like account incomplete),
-        // pass it through
+        // If the fresh check itself threw an ApiError (like account incomplete)
         if (error instanceof ApiError) {
           throw error;
         }
 
-        // If Stripe API call failed for other reasons (network, rate limit, etc.),
-        // fail safely by rejecting the request
+        // If Stripe API call failed for other reasons (network, rate limit, etc.), fail safely by rejecting the request
         console.error(
           "[Stripe Status Check] Failed to verify account status:",
           error

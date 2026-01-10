@@ -14,7 +14,7 @@ export enum TransactionType {
   CREDIT_REDEMPTION_SUBSCRIPTION = "CREDIT_REDEMPTION_SUBSCRIPTION",
   CREDIT_REDEMPTION_CASH = "CREDIT_REDEMPTION_CASH",
 
-  // Credit earnings (for reference, no money involved)
+  // Credit earnings
   CREDIT_EARNED = "CREDIT_EARNED",
 }
 

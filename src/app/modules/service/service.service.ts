@@ -6,7 +6,6 @@ import httpStatus from "http-status";
 import { Category } from "../admin/category.model";
 import { fileUploader } from "../../../helpers/fileUploader";
 import { Booking } from "../booking/booking.model";
-import { TempBooking } from "../../models/TempBooking.model";
 import haversineDistance from "../../../utils/HeversineDistance";
 import { messageService } from "../message/message.service";
 import {

@@ -1,23 +1,14 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 export enum NotificationType {
-  // Booking related
   BOOKING_CREATED = "BOOKING_CREATED",
   BOOKING_ACCEPTED = "BOOKING_ACCEPTED",
   BOOKING_COMPLETED = "BOOKING_COMPLETED",
   BOOKING_CANCELLED = "BOOKING_CANCELLED",
   BOOKING_RATED = "BOOKING_RATED",
-
-  // Subscription related
   BOOKING_LIMIT_EXCEEDED = "BOOKING_LIMIT_EXCEEDED",
-
-  // Referral related
   REFERRAL_REWARD_EARNED = "REFERRAL_REWARD_EARNED",
-
-  // Website content related
   WEBSITE_CONTENT_UPDATED = "WEBSITE_CONTENT_UPDATED",
-
-  // General
   SYSTEM_ANNOUNCEMENT = "SYSTEM_ANNOUNCEMENT",
 }
 
