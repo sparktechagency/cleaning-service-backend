@@ -11,7 +11,7 @@ A comprehensive backend system for a cleaning service marketplace with real-time
 - **Rating & Reviews**: Customers can rate and review completed services
 - **Distance Calculation**: Haversine formula for location-based service matching
 - **Payment Integration**: Stripe payment processing
-- **Email Notifications**: Automated emails using Nodemailer
+- **SMS Notifications**: Verification codes and notifications via Twilio SMS
 
 ### Real-Time Features (Socket.IO)
 - **Live Messaging**: Real-time chat between customers and providers
@@ -29,7 +29,7 @@ A comprehensive backend system for a cleaning service marketplace with real-time
 - **Authentication**: JWT (JSON Web Tokens)
 - **Validation**: Zod schema validation
 - **File Upload**: Cloudinary/AWS S3 integration
-- **Email**: Nodemailer
+- **SMS**: Twilio for SMS notifications
 - **Payment**: Stripe
 
 ## 📦 Installation
@@ -69,11 +69,16 @@ EXPIRES_IN=7d
 RESET_PASS_TOKEN=your_reset_token_secret
 RESET_PASS_TOKEN_EXPIRES_IN=10m
 
-# Email Configuration
+# Email Configuration (Legacy - Email functionality commented out)
 EMAIL=your_email@example.com
 APP_PASS=your_email_app_password
 EMAIL_USER=your_email@example.com
 EMAIL_PASS=your_email_password
+
+# Twilio SMS Configuration (Required for SMS verification)
+TWILIO_ACCOUNT_SID=your_twilio_account_sid
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_PHONE_NUMBER=your_twilio_phone_number
 
 # Cloudinary (optional)
 CLOUDINARY_CLOUD_NAME=your_cloud_name
