@@ -8,6 +8,7 @@ import QRCode from "qrcode";
 import crypto from "crypto";
 import { notificationService } from "../notification/notification.service";
 import { subscriptionService } from "../subscription/subscription.service";
+import { transactionService } from "../transaction/transaction.service";
 import { NotificationType, TempBooking } from "../../models";
 import { processReferralRewards } from "../../../utils/ReferralRewards";
 import Stripe from "stripe";
@@ -40,7 +41,7 @@ const generateCompletionCode = (): string => {
 // Create temp booking and initiate payment immediately
 const createBooking = async (
   customerId: string,
-  payload: CreateBookingPayload
+  payload: CreateBookingPayload,
 ) => {
   // Step 1: Validate customer
   const customer = await User.findById(customerId);
@@ -53,7 +54,7 @@ const createBooking = async (
     .select("+workSchedule +bufferTime")
     .populate(
       "providerId",
-      "email userName stripeAccountId stripeOnboardingComplete stripeAccountStatus"
+      "email userName stripeAccountId stripeOnboardingComplete stripeAccountStatus",
     );
   if (!service) {
     throw new ApiError(httpStatus.NOT_FOUND, "Service not found");
@@ -68,7 +69,7 @@ const createBooking = async (
   if (isNaN(scheduledDate.getTime())) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Invalid scheduled date or time"
+      "Invalid scheduled date or time",
     );
   }
 
@@ -77,7 +78,7 @@ const createBooking = async (
   if (scheduledDate.getTime() < currentTime) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "You cannot book a service in the past"
+      "You cannot book a service in the past",
     );
   }
 
@@ -88,7 +89,7 @@ const createBooking = async (
   if (scheduledDate.getTime() < minimumBookingTime) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "You must book a service at least 30 minutes before it starts"
+      "You must book a service at least 30 minutes before it starts",
     );
   }
 
@@ -110,7 +111,7 @@ const createBooking = async (
     if (daySchedule && daySchedule.isAvailable === false) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        `This service is not available on ${daySchedule.day}s. Please choose another date.`
+        `This service is not available on ${daySchedule.day}s. Please choose another date.`,
       );
     }
 
@@ -153,10 +154,10 @@ const createBooking = async (
         throw new ApiError(
           httpStatus.BAD_REQUEST,
           `Booking starts at ${formatMinutesToTime(
-            bookingStartMinutes
+            bookingStartMinutes,
           )} but provider is only available from ${daySchedule.startTime} on ${
             daySchedule.day
-          }s. Please choose another time.`
+          }s. Please choose another time.`,
         );
       }
 
@@ -165,10 +166,10 @@ const createBooking = async (
         throw new ApiError(
           httpStatus.BAD_REQUEST,
           `Booking ends at ${formatMinutesToTime(
-            bookingEndMinutes
+            bookingEndMinutes,
           )} but provider is only available until ${daySchedule.endTime} on ${
             daySchedule.day
-          }s. Please choose another time.`
+          }s. Please choose another time.`,
         );
       }
     }
@@ -178,7 +179,7 @@ const createBooking = async (
   if (payload.serviceDuration <= 0) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Service duration must be greater than 0"
+      "Service duration must be greater than 0",
     );
   }
 
@@ -191,7 +192,7 @@ const createBooking = async (
   if (!provider || !provider.stripeAccountId) {
     throw new ApiError(
       httpStatus.PAYMENT_REQUIRED,
-      "This provider has not connected their payment account yet. Please choose another provider or try again later."
+      "This provider has not connected their payment account yet. Please choose another provider or try again later.",
     );
   }
 
@@ -201,7 +202,7 @@ const createBooking = async (
   ) {
     throw new ApiError(
       httpStatus.PAYMENT_REQUIRED,
-      "This provider's payment account is not fully activated yet. Please choose another provider or try again later."
+      "This provider's payment account is not fully activated yet. Please choose another provider or try again later.",
     );
   }
 
@@ -212,7 +213,7 @@ const createBooking = async (
   scheduledEndTime.setMinutes(
     scheduledEndTime.getMinutes() +
       payload.serviceDuration * 60 +
-      serviceBufferTime
+      serviceBufferTime,
   );
 
   const conflictingBooking = await Booking.findOne({
@@ -262,7 +263,7 @@ const createBooking = async (
   if (conflictingBooking) {
     throw new ApiError(
       httpStatus.CONFLICT,
-      `This provider already has a ${conflictingBooking.status.toLowerCase()} booking at this time. Please choose a different time slot.`
+      `This provider already has a ${conflictingBooking.status.toLowerCase()} booking at this time. Please choose a different time slot.`,
     );
   }
 
@@ -313,7 +314,7 @@ const createBooking = async (
   if (conflictingTempBooking) {
     throw new ApiError(
       httpStatus.CONFLICT,
-      "A payment is currently in progress for this time slot. You can try again in about 10 minutes if the payment isn't completed, or feel free to choose a different time slot."
+      "A payment is currently in progress for this time slot. You can try again in about 10 minutes if the payment isn't completed, or feel free to choose a different time slot.",
     );
   }
 
@@ -347,7 +348,7 @@ const createBooking = async (
   if (ownerStripeCustomerId) {
     try {
       const existingCustomer = await stripe.customers.retrieve(
-        ownerStripeCustomerId
+        ownerStripeCustomerId,
       );
 
       if (existingCustomer && !existingCustomer.deleted) {
@@ -470,16 +471,61 @@ const createBooking = async (
 const confirmBookingAfterPayment = async (
   bookingId: string,
   paymentIntentId: string,
-  retryCount = 0
+  retryCount = 0,
 ): Promise<any> => {
   const MAX_RETRIES = 3;
+
+  // Helper function to record transaction for existing booking
+  const recordTransactionForBooking = async (booking: any) => {
+    try {
+      const customerIdStr =
+        booking.customerId?._id?.toString() || booking.customerId?.toString();
+      const providerIdStr =
+        booking.providerId?._id?.toString() || booking.providerId?.toString();
+
+      if (customerIdStr && providerIdStr) {
+        // Check if transaction already exists for this booking
+        const { Transaction } = await import("../../models/Transaction.model");
+        const existingTransaction = await Transaction.findOne({
+          bookingId: booking._id,
+          transactionType: "BOOKING_PAYMENT",
+        });
+
+        if (!existingTransaction) {
+          const [customerUser, providerUser, service] = await Promise.all([
+            User.findById(customerIdStr).select("stripeCustomerId").lean(),
+            User.findById(providerIdStr).select("stripeAccountId").lean(),
+            Service.findById(booking.serviceId).select("name").lean(),
+          ]);
+
+          await transactionService.recordBookingPayment({
+            bookingId: booking._id.toString(),
+            ownerId: customerIdStr,
+            providerId: providerIdStr,
+            amount: booking.totalAmount,
+            stripePaymentIntentId: paymentIntentId,
+            stripeCustomerId: customerUser?.stripeCustomerId || "",
+            stripeConnectAccountId: providerUser?.stripeAccountId || "",
+            metadata: {
+              bookingNumber: booking._id.toString().slice(-6),
+              serviceName: service?.name,
+              scheduledAt: booking.scheduledAt,
+            },
+          });
+        }
+      }
+    } catch (transactionError) {
+      console.error("Failed to record booking transaction:", transactionError);
+    }
+  };
 
   // Step 1: Check if booking already exists OUTSIDE transaction (faster)
   const existingBooking = await Booking.findById(bookingId);
 
   if (existingBooking && existingBooking.payment.status === "PAID") {
-    // Booking already confirmed, clean up temp booking
+    // Booking already confirmed, clean up temp booking and record transaction if missing
     await TempBooking.findByIdAndDelete(bookingId);
+    await recordTransactionForBooking(existingBooking);
     return existingBooking;
   }
 
@@ -488,9 +534,8 @@ const confirmBookingAfterPayment = async (
     session.startTransaction();
 
     // Step 2: Find and delete temp booking atomically
-    const tempBooking = await TempBooking.findByIdAndDelete(bookingId).session(
-      session
-    );
+    const tempBooking =
+      await TempBooking.findByIdAndDelete(bookingId).session(session);
 
     if (!tempBooking) {
       // Temp booking might have expired or already been processed
@@ -500,12 +545,13 @@ const confirmBookingAfterPayment = async (
       const bookingCreated = await Booking.findById(bookingId);
 
       if (bookingCreated) {
+        await recordTransactionForBooking(bookingCreated);
         return bookingCreated;
       }
 
       throw new ApiError(
         httpStatus.NOT_FOUND,
-        "Temporary booking not found or already processed"
+        "Temporary booking not found or already processed",
       );
     }
 
@@ -597,7 +643,7 @@ const confirmBookingAfterPayment = async (
       if (providerIdForLimit) {
         try {
           await subscriptionService.checkAndNotifyProviderLimit(
-            providerIdForLimit
+            providerIdForLimit,
           );
         } catch (err) {
           // Non-critical - don't fail the booking
@@ -605,7 +651,10 @@ const confirmBookingAfterPayment = async (
       }
     }
 
-    // Step 6: Return populated booking
+    // Step 6: Record transaction (outside MongoDB session for safety)
+    await recordTransactionForBooking(createdBooking);
+
+    // Step 7: Return populated booking
     const populatedBooking = await Booking.findById(createdBooking._id)
       .populate("serviceId", "name rateByHour coverImages")
       .populate("providerId", "userName profilePicture email");
@@ -623,18 +672,19 @@ const confirmBookingAfterPayment = async (
       if (retryCount < MAX_RETRIES) {
         // Wait with exponential backoff
         await new Promise((resolve) =>
-          setTimeout(resolve, 100 * Math.pow(2, retryCount))
+          setTimeout(resolve, 100 * Math.pow(2, retryCount)),
         );
         return confirmBookingAfterPayment(
           bookingId,
           paymentIntentId,
-          retryCount + 1
+          retryCount + 1,
         );
       } else {
         // Last attempt: Check if booking was created successfully
         const finalCheck = await Booking.findById(bookingId);
 
         if (finalCheck) {
+          await recordTransactionForBooking(finalCheck);
           return finalCheck;
         }
       }
@@ -648,7 +698,7 @@ const confirmBookingAfterPayment = async (
 
 const getBookingsByCustomer = async (
   customerId: string,
-  options: { status?: string; page?: number; limit?: number }
+  options: { status?: string; page?: number; limit?: number },
 ) => {
   const { status, page = 1, limit = 10 } = options;
 
@@ -705,7 +755,7 @@ const getBookingsByCustomer = async (
 
 const getBookingsByProvider = async (
   providerId: string,
-  options: { status?: string; page?: number; limit?: number }
+  options: { status?: string; page?: number; limit?: number },
 ) => {
   const { status, page = 1, limit = 10 } = options;
 
@@ -767,11 +817,11 @@ const getOwnerBookingOverview = async (bookingId: string, userId: string) => {
   const booking = await Booking.findById(bookingId)
     .populate(
       "serviceId",
-      "name coverImages rateByHour description ratingsAverage ratings reviews totalOrders needApproval"
+      "name coverImages rateByHour description ratingsAverage ratings reviews totalOrders needApproval",
     )
     .populate(
       "providerId",
-      "_id userName email profilePicture phoneNumber address experience aboutMe"
+      "_id userName email profilePicture phoneNumber address experience aboutMe",
     );
 
   if (!booking) {
@@ -828,7 +878,7 @@ const getOwnerBookingOverview = async (bookingId: string, userId: string) => {
 
 const getProviderBookingOverview = async (
   bookingId: string,
-  userId: string
+  userId: string,
 ) => {
   if (!mongoose.Types.ObjectId.isValid(bookingId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
@@ -838,7 +888,7 @@ const getProviderBookingOverview = async (
     .populate("serviceId", "name coverImages rateByHour description")
     .populate(
       "customerId",
-      "_id userName email phoneNumber address experience aboutMe"
+      "_id userName email phoneNumber address experience aboutMe",
     );
 
   if (!booking) {
@@ -886,7 +936,7 @@ const getProviderBookingOverview = async (
 
 const acceptBookingByProvider = async (
   bookingId: string,
-  providerId: string
+  providerId: string,
 ) => {
   if (!mongoose.Types.ObjectId.isValid(bookingId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
@@ -900,21 +950,21 @@ const acceptBookingByProvider = async (
   if (booking.providerId?.toString() !== providerId) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
-      "Only the assigned provider can accept this booking"
+      "Only the assigned provider can accept this booking",
     );
   }
 
   if (booking.status !== "PENDING") {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Only pending bookings can be accepted"
+      "Only pending bookings can be accepted",
     );
   }
 
   const updatedBooking = await Booking.findByIdAndUpdate(
     bookingId,
     { status: "ONGOING" },
-    { new: true }
+    { new: true },
   ).populate("serviceId", "name");
 
   // Send notifications
@@ -964,7 +1014,7 @@ const acceptBookingByProvider = async (
 
 const rejectBookingByProvider = async (
   bookingId: string,
-  providerId: string
+  providerId: string,
 ) => {
   if (!mongoose.Types.ObjectId.isValid(bookingId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
@@ -972,7 +1022,7 @@ const rejectBookingByProvider = async (
 
   const booking = await Booking.findById(bookingId).populate(
     "customerId",
-    "userName"
+    "userName",
   );
   if (!booking) {
     throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
@@ -981,14 +1031,14 @@ const rejectBookingByProvider = async (
   if (booking.providerId?.toString() !== providerId) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
-      "Only the assigned provider can reject this booking"
+      "Only the assigned provider can reject this booking",
     );
   }
 
   if (booking.status !== "PENDING") {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Only pending bookings can be rejected"
+      "Only pending bookings can be rejected",
     );
   }
 
@@ -998,7 +1048,7 @@ const rejectBookingByProvider = async (
     await paymentService.refundBookingByStatus(
       bookingId,
       "Provider rejected the booking request",
-      "provider"
+      "provider",
     );
     // Note: refundBookingByStatus already updates status to CANCELLED
     return await Booking.findById(bookingId);
@@ -1008,7 +1058,7 @@ const rejectBookingByProvider = async (
   const updatedBooking = await Booking.findByIdAndUpdate(
     bookingId,
     { status: "CANCELLED" },
-    { new: true }
+    { new: true },
   );
 
   // Send notification to owner about rejection
@@ -1043,7 +1093,7 @@ const cancelBookingByOwner = async (bookingId: string, customerId: string) => {
 
   const booking = await Booking.findById(bookingId).populate(
     "providerId",
-    "userName"
+    "userName",
   );
   if (!booking) {
     throw new ApiError(httpStatus.NOT_FOUND, "Booking not found");
@@ -1054,7 +1104,7 @@ const cancelBookingByOwner = async (bookingId: string, customerId: string) => {
   if (bookingCustomerId !== customerId) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
-      "Only the booking owner can cancel this booking"
+      "Only the booking owner can cancel this booking",
     );
   }
 
@@ -1062,7 +1112,7 @@ const cancelBookingByOwner = async (bookingId: string, customerId: string) => {
   if (booking.status === "ONGOING") {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Cannot cancel: Provider has already accepted this booking. Please contact the provider directly."
+      "Cannot cancel: Provider has already accepted this booking. Please contact the provider directly.",
     );
   }
 
@@ -1070,7 +1120,7 @@ const cancelBookingByOwner = async (bookingId: string, customerId: string) => {
   if (booking.status !== "PENDING") {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Only pending bookings can be cancelled by the owner"
+      "Only pending bookings can be cancelled by the owner",
     );
   }
 
@@ -1080,7 +1130,7 @@ const cancelBookingByOwner = async (bookingId: string, customerId: string) => {
     await paymentService.refundBookingByStatus(
       bookingId,
       "Owner cancelled booking before provider acceptance",
-      "owner"
+      "owner",
     );
     // Note: refundBookingByStatus already updates status to CANCELLED
     return await Booking.findById(bookingId);
@@ -1090,7 +1140,7 @@ const cancelBookingByOwner = async (bookingId: string, customerId: string) => {
   const updatedBooking = await Booking.findByIdAndUpdate(
     bookingId,
     { status: "CANCELLED" },
-    { new: true }
+    { new: true },
   );
 
   // Send notification to provider (if assigned)
@@ -1120,7 +1170,7 @@ const cancelBookingByOwner = async (bookingId: string, customerId: string) => {
 
 const generateCompletionQRCodeByProvider = async (
   bookingId: string,
-  providerId: string
+  providerId: string,
 ) => {
   if (!mongoose.Types.ObjectId.isValid(bookingId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
@@ -1135,7 +1185,7 @@ const generateCompletionQRCodeByProvider = async (
   if (booking.providerId?.toString() !== providerId) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
-      "Only the assigned provider can generate QR code for this booking"
+      "Only the assigned provider can generate QR code for this booking",
     );
   }
 
@@ -1143,7 +1193,7 @@ const generateCompletionQRCodeByProvider = async (
   if (booking.status !== "ONGOING") {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Only ongoing bookings can have completion QR code generated"
+      "Only ongoing bookings can have completion QR code generated",
     );
   }
 
@@ -1169,7 +1219,7 @@ const generateCompletionQRCodeByProvider = async (
         completionCode: completionCode,
         qrCodeUrl: qrCodeUrl,
       },
-      { new: true }
+      { new: true },
     );
 
     return {
@@ -1182,7 +1232,7 @@ const generateCompletionQRCodeByProvider = async (
   } catch (error) {
     throw new ApiError(
       httpStatus.INTERNAL_SERVER_ERROR,
-      "Failed to generate QR code"
+      "Failed to generate QR code",
     );
   }
 };
@@ -1190,7 +1240,7 @@ const generateCompletionQRCodeByProvider = async (
 const completeBookingByOwner = async (
   bookingId: string,
   completionCode: string,
-  ownerId: string
+  ownerId: string,
 ) => {
   if (!mongoose.Types.ObjectId.isValid(bookingId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
@@ -1210,7 +1260,7 @@ const completeBookingByOwner = async (
   if (bookingCustomerId !== ownerId) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
-      "You can only complete your own bookings"
+      "You can only complete your own bookings",
     );
   }
 
@@ -1223,7 +1273,7 @@ const completeBookingByOwner = async (
   if (booking.status !== "ONGOING") {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Only ongoing bookings can be completed"
+      "Only ongoing bookings can be completed",
     );
   }
 
@@ -1231,7 +1281,7 @@ const completeBookingByOwner = async (
   const updatedBooking = await Booking.findByIdAndUpdate(
     bookingId,
     { status: "COMPLETED" },
-    { new: true }
+    { new: true },
   )
     .populate("serviceId", "name")
     .populate("providerId", "userName");
@@ -1278,9 +1328,8 @@ const completeBookingByOwner = async (
 
   // Process referral rewards for provider (10 credits for first service, 5 bonus for 3rd service)
   if (providerIdStr) {
-    const { processProviderReferralRewards } = await import(
-      "../../../utils/ReferralRewards"
-    );
+    const { processProviderReferralRewards } =
+      await import("../../../utils/ReferralRewards");
     await processProviderReferralRewards(providerIdStr);
   }
 
@@ -1578,7 +1627,7 @@ const getRatingAndReviewPage = async (bookingId: string) => {
   // Find the booking and populate provider details
   const booking = await Booking.findById(bookingId).populate(
     "providerId",
-    "userName"
+    "userName",
   );
 
   if (!booking) {
@@ -1596,7 +1645,7 @@ const giveRatingAndReview = async (
   bookingId: string,
   customerId: string,
   rating: number,
-  review: string
+  review: string,
 ) => {
   if (!mongoose.Types.ObjectId.isValid(bookingId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid booking ID");
@@ -1605,7 +1654,7 @@ const giveRatingAndReview = async (
   if (rating < 1 || rating > 5) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Rating must be between 1 and 5"
+      "Rating must be between 1 and 5",
     );
   }
 
@@ -1620,21 +1669,21 @@ const giveRatingAndReview = async (
   if (bookingCustomerId !== customerId) {
     throw new ApiError(
       httpStatus.FORBIDDEN,
-      "You can only rate your own bookings"
+      "You can only rate your own bookings",
     );
   }
 
   if (booking.status !== "COMPLETED") {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Only completed bookings can be rated and reviewed"
+      "Only completed bookings can be rated and reviewed",
     );
   }
 
   if (booking.rating || booking.review) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "This booking has already been rated and reviewed"
+      "This booking has already been rated and reviewed",
     );
   }
 
@@ -1648,7 +1697,7 @@ const giveRatingAndReview = async (
         rating: rating,
         review: review,
       },
-      { new: true, session }
+      { new: true, session },
     );
 
     const service = await Service.findById(booking.serviceId).session(session);
@@ -1668,7 +1717,7 @@ const giveRatingAndReview = async (
           ratingsAverage: parseFloat(newRatingsAverage.toFixed(2)),
           ratingsCount: newRatingsCount,
         },
-        { session }
+        { session },
       );
     }
 
