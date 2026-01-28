@@ -442,6 +442,7 @@ const getIndividualUserDetails = async (userId: string) => {
       email: user.email,
       address: user.address,
       referredBy: user.referredBy || null,
+      NIDFront: user.NIDFront,
     };
   } else if (user.role === "PROVIDER") {
     return {
