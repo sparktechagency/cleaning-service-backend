@@ -30,24 +30,10 @@ const registerUser = async (userData: any) => {
     if (existingUser) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "User already exists with this email or phone number"
+        "User already exists with this email or phone number",
       );
     }
 
-    // Check if there's already a pending registration (temp user) with same email or phone
-    // OLD LOGIC (commented for traceability):
-    // const existingTempUser = await TempUser.findOne({
-    //   $or: [{ email: userData.email }, { phoneNumber: userData.phoneNumber }],
-    // });
-    // if (existingTempUser) {
-    //   throw new ApiError(
-    //     httpStatus.BAD_REQUEST,
-    //     "A registration is already in progress with this email or phone number. Please wait 15 minutes or verify your OTP."
-    //   );
-    // }
-
-    // NEW LOGIC: If TempUser exists with same email or phone, delete it and allow fresh registration
-    // This improves UX - user can restart registration anytime without waiting 15 minutes
     const existingTempUser = await TempUser.findOne({
       $or: [{ email: userData.email }, { phoneNumber: userData.phoneNumber }],
     });
@@ -62,7 +48,7 @@ const registerUser = async (userData: any) => {
 
     const hashedPassword = await bcrypt.hash(
       userData.password,
-      Number(config.bcrypt_salt_rounds)
+      Number(config.bcrypt_salt_rounds),
     );
 
     // Create temporary user
@@ -82,12 +68,12 @@ const registerUser = async (userData: any) => {
     try {
       const emailTemplate = EMAIL_VERIFICATION_TEMPLATE(
         emailOtp,
-        userData.userName
+        userData.userName,
       );
       await emailSender(
         userData.email,
         emailTemplate,
-        "Verify Your Email - Cleaning Service 🧹"
+        "Verify Your Email - Cleaning Service 🧹",
       );
     } catch (emailError) {
       console.error("Email sending error:", emailError);
@@ -119,7 +105,7 @@ const verifyOtp = async (payload: {
     if (!tempUser) {
       throw new ApiError(
         httpStatus.NOT_FOUND,
-        "No pending registration found for this email. Please register first."
+        "No pending registration found for this email. Please register first.",
       );
     }
 
@@ -178,16 +164,9 @@ const completeRegistration = async (registrationData: any, files: any) => {
     }).session(session);
 
     if (!tempUser) {
-      // OLD ERROR MESSAGE (commented for traceability):
-      // throw new ApiError(
-      //   httpStatus.NOT_FOUND,
-      //   "No pending registration found. Please register and verify your email first."
-      // );
-
-      // NEW USER-FRIENDLY ERROR MESSAGE: Guides user to restart registration
       throw new ApiError(
         httpStatus.NOT_FOUND,
-        "Your previous session has expired. Please start registration from the first step again."
+        "Your previous session has expired. Please start registration from the first step again.",
       );
     }
 
@@ -201,7 +180,7 @@ const completeRegistration = async (registrationData: any, files: any) => {
       if (!isValidOtp || !otpExpiry || otpExpiry < new Date()) {
         throw new ApiError(
           httpStatus.BAD_REQUEST,
-          "Invalid or expired OTP. Please request a new OTP."
+          "Invalid or expired OTP. Please request a new OTP.",
         );
       }
     }
@@ -217,7 +196,7 @@ const completeRegistration = async (registrationData: any, files: any) => {
       await session.commitTransaction();
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "User already exists with this email or phone number. Please login instead."
+        "User already exists with this email or phone number. Please login instead.",
       );
     }
 
@@ -230,28 +209,28 @@ const completeRegistration = async (registrationData: any, files: any) => {
     if (files) {
       if (files.profilePicture && files.profilePicture[0]) {
         const profileResult = await fileUploader.uploadToCloudinary(
-          files.profilePicture[0]
+          files.profilePicture[0],
         );
         profilePictureUrl = profileResult?.Location || "";
       }
 
       if (files.NIDFront && files.NIDFront[0]) {
         const nidFrontResult = await fileUploader.uploadToCloudinary(
-          files.NIDFront[0]
+          files.NIDFront[0],
         );
         nidFrontUrl = nidFrontResult?.Location || "";
       }
 
       if (files.NIDBack && files.NIDBack[0]) {
         const nidBackResult = await fileUploader.uploadToCloudinary(
-          files.NIDBack[0]
+          files.NIDBack[0],
         );
         nidBackUrl = nidBackResult?.Location || "";
       }
 
       if (files.selfieWithNID && files.selfieWithNID[0]) {
         const selfieWithNIDResult = await fileUploader.uploadToCloudinary(
-          files.selfieWithNID[0]
+          files.selfieWithNID[0],
         );
         selfieWithNIDUrl = selfieWithNIDResult?.Location || "";
       }
@@ -277,7 +256,7 @@ const completeRegistration = async (registrationData: any, files: any) => {
         };
       } else {
         console.warn(
-          `Invalid referral code provided: ${tempUser.referralCode}`
+          `Invalid referral code provided: ${tempUser.referralCode}`,
         );
         // Continue registration even if referral code is invalid
         // Don't throw error, just log warning
@@ -296,6 +275,7 @@ const completeRegistration = async (registrationData: any, files: any) => {
       role: registrationData.role,
       lattitude: registrationData.lattitude,
       longitude: registrationData.longitude,
+      address: registrationData.address,
       resultRange: registrationData.resultRange || 10,
       profilePicture: profilePictureUrl,
       NIDFront: nidFrontUrl,
@@ -338,7 +318,7 @@ const completeRegistration = async (registrationData: any, files: any) => {
             status: "PENDING",
           },
         ],
-        { session }
+        { session },
       );
     }
 
@@ -351,12 +331,12 @@ const completeRegistration = async (registrationData: any, files: any) => {
     try {
       const welcomeTemplate = WELCOME_COMPLETE_TEMPLATE(
         newUser.userName,
-        registrationData.role
+        registrationData.role,
       );
       await emailSender(
         newUser.email,
         welcomeTemplate,
-        "Welcome to Cleaning Service! 🎉 Registration Complete"
+        "Welcome to Cleaning Service! 🎉 Registration Complete",
       );
     } catch (emailError) {
       console.error("Welcome email sending error:", emailError);
@@ -399,19 +379,19 @@ const loginUser = async (payload: {
   if (!userData?.email) {
     throw new ApiError(
       httpStatus.NOT_FOUND,
-      "User not found! with this email " + payload.email
+      "User not found! with this email " + payload.email,
     );
   }
   if (userData.status !== "ACTIVE") {
     throw new ApiError(
       httpStatus.FORBIDDEN,
-      "User account already delete or Block."
+      "User account already delete or Block.",
     );
   }
 
   const isCorrectPassword: boolean = await bcrypt.compare(
     payload.password,
-    userData.password
+    userData.password,
   );
 
   if (!isCorrectPassword) {
@@ -422,7 +402,7 @@ const loginUser = async (payload: {
   if (payload.fcmToken) {
     await User.findOneAndUpdate(
       { email: payload.email },
-      { fcmToken: payload.fcmToken }
+      { fcmToken: payload.fcmToken },
     );
   }
 
@@ -433,7 +413,7 @@ const loginUser = async (payload: {
       role: userData.role,
     },
     config.jwt.jwt_secret as string,
-    config.jwt.expires_in as string
+    config.jwt.expires_in as string,
   );
 
   const { password, ...withoutPassword } = userData.toObject();
@@ -470,7 +450,7 @@ const changePassword = async (
   userId: string,
   oldPassword: string,
   newPassword: string,
-  confirmPassword: string
+  confirmPassword: string,
 ) => {
   const user = await User.findById(userId);
 
@@ -480,7 +460,7 @@ const changePassword = async (
 
   const isCorrectPassword: boolean = await bcrypt.compare(
     oldPassword,
-    user.password
+    user.password,
   );
 
   if (!isCorrectPassword) {
@@ -490,19 +470,19 @@ const changePassword = async (
   if (newPassword !== confirmPassword) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "New password and confirm password do not match!"
+      "New password and confirm password do not match!",
     );
   }
 
   const hashedPassword = await bcrypt.hash(
     newPassword,
-    Number(config.bcrypt_salt_rounds)
+    Number(config.bcrypt_salt_rounds),
   );
 
   const result = await User.findByIdAndUpdate(
     userId,
     { password: hashedPassword },
-    { new: true }
+    { new: true },
   );
 
   return result;
@@ -526,12 +506,12 @@ const forgotPassword = async (payload: { email: string }) => {
   try {
     const resetTemplate = PASSWORD_RESET_TEMPLATE(
       otp,
-      userData.userName || "User"
+      userData.userName || "User",
     );
     await emailSender(
       payload.email,
       resetTemplate,
-      "🔐 Password Reset Request - Cleaning Service"
+      "🔐 Password Reset Request - Cleaning Service",
     );
   } catch (emailError) {
     console.error("Password reset email error:", emailError);
@@ -548,7 +528,7 @@ const resendOtp = async (email: string, otpType: string = "RESET_PASSWORD") => {
     if (!tempUser) {
       throw new ApiError(
         httpStatus.NOT_FOUND,
-        "No pending registration found for this email. Please register first."
+        "No pending registration found for this email. Please register first.",
       );
     }
 
@@ -563,12 +543,12 @@ const resendOtp = async (email: string, otpType: string = "RESET_PASSWORD") => {
     try {
       const emailTemplate = EMAIL_VERIFICATION_TEMPLATE(
         otp,
-        tempUser.userName || "User"
+        tempUser.userName || "User",
       );
       await emailSender(
         email,
         emailTemplate,
-        "Verify Your Email - Cleaning Service 🧹"
+        "Verify Your Email - Cleaning Service 🧹",
       );
     } catch (emailError) {
       console.error("Resend email verification OTP error:", emailError);
@@ -599,12 +579,12 @@ const resendOtp = async (email: string, otpType: string = "RESET_PASSWORD") => {
   try {
     const resetTemplate = PASSWORD_RESET_TEMPLATE(
       otp,
-      userData.userName || "User"
+      userData.userName || "User",
     );
     await emailSender(
       email,
       resetTemplate,
-      "🔐 Password Reset OTP - Cleaning Service"
+      "🔐 Password Reset OTP - Cleaning Service",
     );
   } catch (emailError) {
     console.error("Resend password reset OTP error:", emailError);
@@ -640,12 +620,12 @@ const verifyForgotPasswordOtp = async (payload: {
 const resetPassword = async (
   email: string,
   newPassword: string,
-  confirmPassword: string
+  confirmPassword: string,
 ) => {
   if (newPassword !== confirmPassword) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "New password and confirm password do not match!"
+      "New password and confirm password do not match!",
     );
   }
 
@@ -663,13 +643,13 @@ const resetPassword = async (
   ) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "OTP verification required or OTP has expired. Please request a new OTP."
+      "OTP verification required or OTP has expired. Please request a new OTP.",
     );
   }
 
   const hashedPassword = await bcrypt.hash(
     newPassword,
-    Number(config.bcrypt_salt_rounds)
+    Number(config.bcrypt_salt_rounds),
   );
 
   await User.findByIdAndUpdate(user._id, {
@@ -685,7 +665,7 @@ const checkTokenValidity = async (token: string) => {
   try {
     const decoded = jwtHelpers.verifyToken(
       token,
-      config.jwt.jwt_secret as string
+      config.jwt.jwt_secret as string,
     );
     return { isValid: true, decoded };
   } catch (error) {
