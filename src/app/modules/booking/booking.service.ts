@@ -515,7 +515,7 @@ const confirmBookingAfterPayment = async (
         }
       }
     } catch (transactionError) {
-      console.error("Failed to record booking transaction:", transactionError);
+      // Failed to record booking transaction - non-blocking
     }
   };
 

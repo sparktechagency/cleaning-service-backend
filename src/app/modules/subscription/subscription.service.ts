@@ -176,9 +176,6 @@ const createStripeCustomer = async (userId: string) => {
 
         // If customer has active USD items, create new EUR customer
         if (subscriptions.data.length > 0) {
-          console.warn(
-            `⚠️ Customer ${stripeCustomerId} has existing USD subscriptions. Creating new EUR customer.`
-          );
 
           // Create new EUR-specific customer
           const newCustomer = await stripe.customers.create({
@@ -933,13 +930,7 @@ const handleStripeWebhook = async (
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-
-      try {
-        await verifyAndActivateSubscription(session.id);
-      } catch (error) {
-        console.error("Failed to activate subscription:", error);
-        throw error;
-      }
+      await verifyAndActivateSubscription(session.id);
       break;
     }
 

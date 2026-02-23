@@ -335,7 +335,6 @@ const disconnectAccount = async (userId: string) => {
     await stripe.accounts.del(user.stripeAccountId);
   } catch (error: any) {
     // If account already deleted or doesn't exist, continue anyway
-    console.log("Stripe account deletion warning:", error.message);
   }
 
   // Update user - clear all Stripe-related fields
@@ -396,44 +395,15 @@ const handleConnectWebhook = async (
       if (userId) {
         const isActive = account.charges_enabled && account.payouts_enabled;
 
-        // Log webhook receipt with timestamp for debugging timing issues
-        console.log(
-          `[Stripe Webhook - account.updated] Received at ${new Date().toISOString()}`,
-          {
-            userId,
-            accountId: account.id,
-            isActive,
-            charges_enabled: account.charges_enabled,
-            payouts_enabled: account.payouts_enabled,
-            details_submitted: account.details_submitted,
-          }
-        );
-
         // Update database with new status
-        const updateResult = await User.findByIdAndUpdate(
+        await User.findByIdAndUpdate(
           userId,
           {
             stripeAccountStatus: isActive ? "active" : "pending",
             stripeOnboardingComplete: isActive,
           },
-          { new: true } // Return updated document for verification
+          { new: true }
         );
-
-        // Verify update succeeded
-        if (updateResult) {
-          console.log(
-            `[Stripe Webhook - account.updated] Database updated successfully`,
-            {
-              userId,
-              newStatus: updateResult.stripeAccountStatus,
-              onboardingComplete: updateResult.stripeOnboardingComplete,
-            }
-          );
-        } else {
-          console.error(
-            `[Stripe Webhook - account.updated] Failed to update user ${userId} - user not found`
-          );
-        }
 
         // Notify provider when account becomes active
         if (isActive) {
@@ -449,9 +419,7 @@ const handleConnectWebhook = async (
           });
         }
       } else {
-        console.warn(
-          `[Stripe Webhook - account.updated] No userId in metadata for account ${account.id}`
-        );
+        // No userId in metadata - skip
       }
       break;
     }
@@ -476,7 +444,7 @@ const handleConnectWebhook = async (
     }
 
     default:
-      console.log(`Unhandled Connect event type: ${event.type}`);
+      break;
   }
 
   return { received: true };

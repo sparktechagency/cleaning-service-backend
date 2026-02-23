@@ -255,11 +255,7 @@ const completeRegistration = async (registrationData: any, files: any) => {
           referralCode: referrerUser.referralCode,
         };
       } else {
-        console.warn(
-          `Invalid referral code provided: ${tempUser.referralCode}`,
-        );
         // Continue registration even if referral code is invalid
-        // Don't throw error, just log warning
       }
     }
 

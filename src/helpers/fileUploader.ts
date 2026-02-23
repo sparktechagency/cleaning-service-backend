@@ -188,7 +188,6 @@ const deleteFromCloudinary = async (url: string): Promise<boolean> => {
     // Extract public_id from URL
     // URLs look like: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/public_id.jpg
     if (!url || typeof url !== "string") {
-      console.warn("Invalid URL provided for Cloudinary deletion:", url);
       return false;
     }
 
@@ -211,10 +210,8 @@ const deleteFromCloudinary = async (url: string): Promise<boolean> => {
     // Destroy the image in Cloudinary
     const result = await cloudinary.uploader.destroy(publicId);
 
-    console.log("Cloudinary delete result:", result);
     return result.result === "ok";
   } catch (error) {
-    console.error("Error deleting file from Cloudinary:", error);
     return false;
   }
 };

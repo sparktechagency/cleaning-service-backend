@@ -38,7 +38,6 @@ const handleWebhook = catchAsync(async (req: Request, res: Response) => {
     eventType = parsedBody.type || "";
     metadata = parsedBody.data?.object?.metadata || {};
   } catch (error) {
-    console.error("Failed to parse webhook body:", error);
     return sendResponse(res, {
       statusCode: httpStatus.BAD_REQUEST,
       success: false,
@@ -96,7 +95,6 @@ const handleWebhook = catchAsync(async (req: Request, res: Response) => {
       data: result,
     });
   } catch (error) {
-    console.error("Webhook processing error:", error);
     sendResponse(res, {
       statusCode: httpStatus.OK,
       success: false,

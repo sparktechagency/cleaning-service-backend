@@ -70,9 +70,6 @@ const createBookingPayment = async (bookingId: string, ownerId: string) => {
 
         // If customer has active USD items, create new EUR customer
         if (subscriptions.data.length > 0) {
-          console.warn(
-            `Customer ${ownerStripeCustomerId} has existing USD subscriptions. Creating new EUR customer.`
-          );
 
           // Create new EUR-specific customer
           const newCustomer = await stripe.customers.create({
@@ -569,10 +566,7 @@ const handleBookingPaymentWebhook = async (
                 paymentIntentId
               );
             } catch (error: any) {
-              console.error(
-                `Temp booking might have expired or already been processed for booking ${bookingId}:`,
-                error
-              );
+              // Temp booking might have expired or already been processed
             }
           }
           // OLD FLOW: Backward compatibility for old temp bookings
@@ -586,10 +580,7 @@ const handleBookingPaymentWebhook = async (
                 paymentIntentId
               );
             } catch (error: any) {
-              console.error(
-                `Legacy booking processing error for temp booking ${tempBookingId}:`,
-                error
-              );
+              // Legacy booking processing error - non-blocking
             }
           }
         }
@@ -615,10 +606,7 @@ const handleBookingPaymentWebhook = async (
               paymentIntent.id
             );
           } catch (error: any) {
-            console.error(
-              `Error confirming booking ${bookingId} after payment:`,
-              error
-            );
+            // Error confirming booking after payment - non-blocking
           }
         }
         // Backward compatibility for old temp bookings
@@ -632,10 +620,7 @@ const handleBookingPaymentWebhook = async (
               paymentIntent.id
             );
           } catch (error: any) {
-            console.error(
-              `Legacy booking processing error for temp booking ${tempBookingId}:`,
-              error
-            );
+            // Legacy booking processing error - non-blocking
           }
         }
       }

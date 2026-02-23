@@ -30,8 +30,6 @@ export const getIO = (): Server | null => {
 
 export const socketHandler = (io: Server) => {
   ioInstance = io;
-  console.log("🔌 Socket.io server running...");
-
   // Middleware to authenticate socket connection
   io.use((socket: AuthenticatedSocket, next) => {
     try {
@@ -53,24 +51,20 @@ export const socketHandler = (io: Server) => {
         next(new Error("Authentication error: Invalid token payload"));
       }
     } catch (err) {
-      console.error("Socket auth error:", err);
       next(new Error("Authentication error"));
     }
   });
 
   io.on("connection", async (socket: AuthenticatedSocket) => {
-    console.log(`User connected: ${socket.userId}`);
     const userId = socket.userId;
 
     if (!userId) {
-      console.log("No userId found, disconnecting socket");
       socket.disconnect();
       return;
     }
 
     const findUser = await User.findById(userId).select("_id isOnline");
     if (!findUser) {
-      console.log("User not found in DB, disconnecting socket");
       socket.disconnect();
       return;
     }
@@ -81,8 +75,6 @@ export const socketHandler = (io: Server) => {
     onlineUsers.set(userId, socket.id);
     io.emit("online_users", Array.from(onlineUsers.keys()));
 
-    console.log(`📡 Online users: ${onlineUsers.size}`);
-
     // Handle: Get list of all users (optional - for chat list)
     socket.on("users_list", async () => {
       try {
@@ -91,7 +83,6 @@ export const socketHandler = (io: Server) => {
         );
         socket.emit("users_list_response", users);
       } catch (error) {
-        console.error("Error fetching users list:", error);
         socket.emit("message_error", { error: "Failed to fetch users" });
       }
     });
@@ -241,7 +232,6 @@ export const socketHandler = (io: Server) => {
         // Confirm to sender
         socket.emit("message_sent", createdMessage);
       } catch (error: any) {
-        console.error("Error sending message:", error);
         socket.emit("message_error", {
           error: "Failed to send message: " + error.message,
         });
@@ -255,7 +245,6 @@ export const socketHandler = (io: Server) => {
         lastSeen: new Date(),
       });
       io.emit("online_users", Array.from(onlineUsers.keys()));
-      console.log(`User disconnected: ${userId}`);
     });
 
     // Handle: Get unread notification count
@@ -270,7 +259,7 @@ export const socketHandler = (io: Server) => {
         });
         socket.emit("unread_count", { count });
       } catch (error) {
-        console.error("Error getting unread count:", error);
+        // Error getting unread count
       }
     });
   });
