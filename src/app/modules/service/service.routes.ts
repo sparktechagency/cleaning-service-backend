@@ -8,6 +8,7 @@ import { UserRole } from "../../models";
 import {
   checkServiceCreationLimit,
   checkCategoryLimit,
+  checkCategoryLimitForUpdate,
   checkStripeAccountActive,
 } from "../../middlewares/subscriptionCheck";
 
@@ -41,8 +42,8 @@ router.post(
   auth(UserRole.PROVIDER),
   checkStripeAccountActive,
   checkServiceCreationLimit,
-  checkCategoryLimit,
   serviceUpload,
+  checkCategoryLimit,
   validateRequest(serviceValidation.createServiceSchema),
   serviceController.createService,
 );
@@ -58,6 +59,7 @@ router.put(
   "/update/:id",
   auth(UserRole.PROVIDER),
   serviceUpload,
+  checkCategoryLimitForUpdate,
   validateRequest(serviceValidation.updateServiceSchema),
   serviceController.updateService,
 );

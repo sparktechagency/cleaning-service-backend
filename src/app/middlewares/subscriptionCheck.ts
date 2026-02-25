@@ -107,7 +107,63 @@ export const checkCategoryLimit = async (
     if (isNewCategory && !limits.canAddCategory) {
       throw new ApiError(
         httpStatus.FORBIDDEN,
-        `You have reached the category limit for your ${limits.currentPlan} plan. To add services in a new category, please delete all services from your current category first, or upgrade your subscription.`
+        `You Can Create Services Under ${limits.limits.categoriesLimit} Categories With Your ${limits.currentPlan} Plan.`
+      );
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Middleware to check category limit when updating a service's category
+export const checkCategoryLimitForUpdate = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = (req as any).user?.id;
+    const userRole = (req as any).user?.role;
+    const { categoryId } = req.body;
+    const serviceId = req.params.id;
+
+    // Skip if not applicable
+    if (userRole !== "PROVIDER" || !categoryId || !serviceId) {
+      return next();
+    }
+
+    // Check if category is actually changing
+    const { Service } = await import("../modules/service/service.model");
+    const service = await Service.findById(serviceId).select("categoryId");
+
+    if (!service || service.categoryId.toString() === categoryId) {
+      return next();
+    }
+
+    // Get plan limits
+    const limits = await subscriptionService.checkPlanLimits(userId);
+
+    if (limits.limits.categoriesLimit === -1) {
+      return next();
+    }
+
+    // Count unique categories after the update (exclude current service, add new category)
+    const otherServices = await Service.find({
+      providerId: userId,
+      _id: { $ne: serviceId },
+    }).select("categoryId");
+
+    const uniqueCategories = new Set(
+      otherServices.map((s) => s.categoryId.toString())
+    );
+    uniqueCategories.add(categoryId);
+
+    if (uniqueCategories.size > limits.limits.categoriesLimit) {
+      throw new ApiError(
+        httpStatus.FORBIDDEN,
+        `You Can Create Services Under ${limits.limits.categoriesLimit} Categories With Your ${limits.currentPlan} Plan.`
       );
     }
 
