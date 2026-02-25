@@ -626,12 +626,32 @@ const getServicesUnderCategory = async (categoryId: string) => {
   }
 
   const services = await Service.find(query)
-    .populate("providerId", "userName profilePicture")
+    .populate("providerId", "userName profilePicture plan")
     .select(
-      "name coverImages coverImagesMeta ratingsAverage needApproval rateByHour providerId"
+      "name coverImages coverImagesMeta ratingsAverage needApproval rateByHour providerId createdAt"
     )
-    .sort({ createdAt: -1 })
     .lean();
+
+  // Sort by subscription priority, then rating, then creation date
+  const priorityMap: Record<string, number> = {
+    PLATINUM: 1,
+    GOLD: 2,
+    SILVER: 3,
+    FREE: 4,
+  };
+
+  services.sort((a: any, b: any) => {
+    const aPriority = priorityMap[a.providerId?.plan || "FREE"] || 5;
+    const bPriority = priorityMap[b.providerId?.plan || "FREE"] || 5;
+
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    const aRating = a.ratingsAverage || 0;
+    const bRating = b.ratingsAverage || 0;
+    if (aRating !== bRating) return bRating - aRating;
+
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   // Transform the data to include only required fields
   const transformedServices = services.map((service: any) => {
@@ -1032,7 +1052,7 @@ const searchAndFilterServices = async (queryParams: {
       .populate("categoryId", "name description image")
       .populate(
         "providerId",
-        "userName email phoneNumber profilePicture lattitude longitude experience"
+        "userName email phoneNumber profilePicture lattitude longitude experience plan"
       )
       .sort({ createdAt: -1 })
       .lean();
@@ -1217,7 +1237,28 @@ const searchAndFilterServices = async (queryParams: {
       });
     }
 
-    // Step 7: Transform and format the response
+    // Step 7: Sort by subscription priority, then rating, then creation date
+    const priorityMap: Record<string, number> = {
+      PLATINUM: 1,
+      GOLD: 2,
+      SILVER: 3,
+      FREE: 4,
+    };
+
+    services.sort((a: any, b: any) => {
+      const aPriority = priorityMap[a.providerId?.plan || "FREE"] || 5;
+      const bPriority = priorityMap[b.providerId?.plan || "FREE"] || 5;
+
+      if (aPriority !== bPriority) return aPriority - bPriority;
+
+      const aRating = a.ratingsAverage || 0;
+      const bRating = b.ratingsAverage || 0;
+      if (aRating !== bRating) return bRating - aRating;
+
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    // Step 8: Transform and format the response
     const transformedServices = services.map((service: any) => {
       const imagesMeta = service.coverImagesMeta || [];
       const sortedImages =
