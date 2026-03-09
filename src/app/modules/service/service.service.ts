@@ -968,6 +968,8 @@ const searchAndFilterServices = async (queryParams: {
   instantBooking?: string;
   gender?: string;
   language?: string;
+  sortByPrice?: string; // "low_to_high" or "high_to_low"
+  sortByRating?: string; // "low_to_high" or "high_to_low"
 }) => {
   try {
     const {
@@ -983,6 +985,8 @@ const searchAndFilterServices = async (queryParams: {
       instantBooking,
       gender,
       language,
+      sortByPrice,
+      sortByRating,
     } = queryParams;
 
     // Step 0: Get providers who have exceeded their booking limit (real-time check)
@@ -1237,7 +1241,7 @@ const searchAndFilterServices = async (queryParams: {
       });
     }
 
-    // Step 7: Sort by subscription priority, then rating, then creation date
+    // Step 7: Sort results
     const priorityMap: Record<string, number> = {
       PLATINUM: 1,
       GOLD: 2,
@@ -1245,15 +1249,43 @@ const searchAndFilterServices = async (queryParams: {
       FREE: 4,
     };
 
+    const hasUserSort =
+      (sortByPrice === "low_to_high" || sortByPrice === "high_to_low") ||
+      (sortByRating === "low_to_high" || sortByRating === "high_to_low");
+
     services.sort((a: any, b: any) => {
+      if (hasUserSort) {
+        // User-requested sorting: rating first (if provided), then price (if provided)
+        if (sortByRating === "low_to_high" || sortByRating === "high_to_low") {
+          const aRating = a.ratingsAverage || 0;
+          const bRating = b.ratingsAverage || 0;
+          if (aRating !== bRating) {
+            return sortByRating === "low_to_high"
+              ? aRating - bRating
+              : bRating - aRating;
+          }
+        }
+
+        if (sortByPrice === "low_to_high" || sortByPrice === "high_to_low") {
+          const aPrice = parseFloat(a.rateByHour) || 0;
+          const bPrice = parseFloat(b.rateByHour) || 0;
+          if (aPrice !== bPrice) {
+            return sortByPrice === "low_to_high"
+              ? aPrice - bPrice
+              : bPrice - aPrice;
+          }
+        }
+      } else {
+        // Default: sort by rating descending when no user sort
+        const aRating = a.ratingsAverage || 0;
+        const bRating = b.ratingsAverage || 0;
+        if (aRating !== bRating) return bRating - aRating;
+      }
+
+      // Tiebreaker: subscription priority, then creation date
       const aPriority = priorityMap[a.providerId?.plan || "FREE"] || 5;
       const bPriority = priorityMap[b.providerId?.plan || "FREE"] || 5;
-
       if (aPriority !== bPriority) return aPriority - bPriority;
-
-      const aRating = a.ratingsAverage || 0;
-      const bRating = b.ratingsAverage || 0;
-      if (aRating !== bRating) return bRating - aRating;
 
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
@@ -1303,6 +1335,8 @@ const searchAndFilterServices = async (queryParams: {
         instantBooking: instantBooking || null,
         gender: gender || null,
         language: language || null,
+        sortByPrice: sortByPrice || null,
+        sortByRating: sortByRating || null,
       },
     };
   } catch (error) {
